@@ -275,7 +275,8 @@ class DemoApp(QMainWindow):
     def setup_layers(self):
         # SVG
         self.svg_layer = SvgLayer()
-        self.create_dummy_svg()
+        svg_path = os.path.join(os.path.dirname(__file__), 'floorplan.svg')
+        self.svg_layer.load_svg(svg_path)
         self.scene.addItem(self.svg_layer)
         
         # Heatmap
@@ -442,19 +443,7 @@ class DemoApp(QMainWindow):
 
     # --- Logic Methods (Reused) ---
 
-    def create_dummy_svg(self):
-        svg_content = b'''
-        <svg width="400" height="400" viewBox="-200 -200 400 400" xmlns="http://www.w3.org/2000/svg">
-            <rect x="-200" y="-200" width="400" height="400" fill="#222" stroke="#444" stroke-width="2"/>
-            <circle cx="0" cy="0" r="150" fill="none" stroke="#555" stroke-width="2" stroke-dasharray="10,10"/>
-            <line x1="-200" y1="0" x2="200" y2="0" stroke="#555" stroke-width="1"/>
-            <line x1="0" y1="-200" x2="0" y2="200" stroke="#555" stroke-width="1"/>
-            <text x="-180" y="-180" fill="#888" font-family="sans-serif" font-size="20">Floor Plan</text>
-        </svg>
-        '''
-        filename = "dummy_map.svg"
-        with open(filename, "wb") as f: f.write(svg_content)
-        self.svg_layer.load_svg(filename)
+
 
     def create_dummy_pin(self):
         # Create a simple black dot

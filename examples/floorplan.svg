@@ -1,0 +1,43 @@
+<svg width="400" height="400" viewBox="-200 -200 400 400" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <rect x="-200" y="-200" width="400" height="400" fill="#1e1e1e"/>
+    
+    <!-- Grid -->
+    <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#2a2a2a" stroke-width="1"/>
+        </pattern>
+    </defs>
+    <rect x="-200" y="-200" width="400" height="400" fill="url(#grid)"/>
+
+    <!-- Walls -->
+    <g stroke="#555" stroke-width="4" fill="none">
+        <!-- Outer Boundary -->
+        <rect x="-180" y="-180" width="360" height="360" rx="10"/>
+        
+        <!-- Internal Walls -->
+        <path d="M -180 0 L 0 0 M 0 -180 L 0 0"/>
+        <path d="M 0 0 L 180 0"/>
+        <path d="M 80 0 L 80 180"/>
+    </g>
+
+    <!-- Room Labels -->
+    <g font-family="JetBrains Mono, monospace" font-size="14" fill="#888" text-anchor="middle">
+        <text x="-90" y="-90">Living Room</text>
+        <text x="90" y="-90">Kitchen</text>
+        <text x="-90" y="90">Bedroom</text>
+        <text x="130" y="90">Bath</text>
+    </g>
+
+    <!-- Doorways -->
+    <g stroke="#1e1e1e" stroke-width="6" fill="none">
+        <path d="M -40 0 L 40 0"/>
+        <path d="M 0 -40 L 0 40"/>
+        <path d="M 80 60 L 80 120"/>
+    </g>
+    
+    <!-- Door Arcs -->
+    <g stroke="#666" stroke-width="1" fill="none" stroke-dasharray="4,4">
+        <path d="M -40 0 A 40 40 0 0 1 0 40"/>
+    </g>
+</svg>
