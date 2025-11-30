@@ -20,6 +20,9 @@ class TextLayer(DataLayer):
         self._bg_color = QColor(0, 0, 0, 180) # Semi-transparent black
         self._highlight_color = QColor(Qt.GlobalColor.yellow)
         self._highlighted_indices = set()
+        
+        self._collision_avoidance_enabled = False
+        self._cached_layout = None
 
     @property
     def font(self):
@@ -38,26 +41,34 @@ class TextLayer(DataLayer):
         self._highlighted_indices = set(indices)
         self.update_layer()
 
+    @property
+    def collision_avoidance_enabled(self):
+        return self._collision_avoidance_enabled
+
+    @collision_avoidance_enabled.setter
+    def collision_avoidance_enabled(self, enabled):
+        self._collision_avoidance_enabled = enabled
+        self.update_layer()
+
+    def update_layer(self):
+        self._cached_layout = None
+        super().update_layer()
+
     def paint(self, painter, option, widget):
         points, values, labels = self.get_valid_data()
         
         painter.setFont(self._font)
         metrics = painter.fontMetrics()
         
-        for i, (x, y) in enumerate(points):
-            # Determine text to draw (implemented by subclasses)
+        if self._cached_layout is None:
+            self._cached_layout = self._calculate_layout(points, values, labels, metrics)
+            
+        for i, rect in self._cached_layout.items():
             text = self._get_text(i, values[i], labels[i])
-            if not text:
-                continue
-                
+            if not text: continue
+            
             # Determine background color
             bg_color = self._highlight_color if i in self._highlighted_indices else self._bg_color
-            
-            # Calculate rect
-            rect = metrics.boundingRect(text)
-            rect.moveCenter(QPointF(x, y).toPoint())
-            # Add padding
-            rect.adjust(-2, -2, 2, 2)
             
             # Draw background
             painter.fillRect(rect, bg_color)
@@ -65,6 +76,72 @@ class TextLayer(DataLayer):
             # Draw text
             painter.setPen(self._text_color if i not in self._highlighted_indices else Qt.GlobalColor.black)
             painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
+
+    def _calculate_layout(self, points, values, labels, metrics):
+        layout = {} # index -> QRectF
+        placed_rects = []
+        
+        # Offsets: Center, Top, Bottom, Left, Right
+        # Assuming text height ~15-20px. 
+        # Center is (0,0). Top is (0, -h). Bottom is (0, h).
+        # We need to know the size of each text first.
+        
+        for i, (x, y) in enumerate(points):
+            text = self._get_text(i, values[i], labels[i])
+            if not text: continue
+            
+            rect = metrics.boundingRect(text)
+            # Add padding
+            rect.adjust(-2, -2, 2, 2)
+            w, h = rect.width(), rect.height()
+            
+            candidates = [
+                QPointF(x, y), # Center
+                QPointF(x, y - h), # Top
+                QPointF(x, y + h), # Bottom
+                QPointF(x - w, y), # Left
+                QPointF(x + w, y)  # Right
+            ]
+            
+            chosen_rect = None
+            
+            if self._collision_avoidance_enabled:
+                for center in candidates:
+                    # Create candidate rect centered at 'center'
+                    # Wait, boundingRect returns rect with (0, -ascent) usually.
+                    # We want to center it at 'center'.
+                    
+                    # Original logic: rect.moveCenter(QPointF(x, y).toPoint())
+                    # So let's replicate that.
+                    
+                    candidate_rect = QRectF(rect)
+                    candidate_rect.moveCenter(center)
+                    
+                    # Check collision
+                    collision = False
+                    for placed in placed_rects:
+                        if candidate_rect.intersects(placed):
+                            collision = True
+                            break
+                    
+                    if not collision:
+                        chosen_rect = candidate_rect
+                        break
+                
+                # If all collide, fallback to Center (first candidate)
+                if chosen_rect is None:
+                     candidate_rect = QRectF(rect)
+                     candidate_rect.moveCenter(candidates[0])
+                     chosen_rect = candidate_rect
+            else:
+                # Just Center
+                chosen_rect = QRectF(rect)
+                chosen_rect.moveCenter(QPointF(x, y))
+                
+            layout[i] = chosen_rect
+            placed_rects.append(chosen_rect)
+            
+        return layout
 
     def _get_text(self, index, value, label):
         """
