@@ -16,7 +16,7 @@ class HeatmapLayer(DataLayer):
     and dynamic quality adjustment.
     Supports arbitrary polygon boundaries.
     """
-    renderingFinished = Signal(float) # Duration in ms
+    renderingFinished = Signal(float, int) # Duration in ms, Grid Size
 
     def __init__(self, data_container, parent=None):
         super().__init__(data_container, parent)
@@ -24,7 +24,9 @@ class HeatmapLayer(DataLayer):
         # Configuration
         self._boundary_shape = QPolygonF() # Default empty
         self._auto_boundary = True # Default to auto-fit data
-        self._grid_size = 300
+        self._grid_size = 50 # Start low for fast initial render
+        self._neighbors = 30
+        self._target_render_time = 100 # Default High (100ms)
         self._hq_delay = 300 # ms
         self._colormap = get_colormap("viridis")
         
@@ -53,6 +55,37 @@ class HeatmapLayer(DataLayer):
     def colormap(self, name):
         self._colormap = get_colormap(name)
         self.update_layer()
+
+    @property
+    def target_render_time(self):
+        return self._target_render_time
+
+    @target_render_time.setter
+    def target_render_time(self, ms):
+        self._target_render_time = float(ms)
+        # Trigger update to adapt immediately
+        self.on_data_changed()
+
+    @property
+    def quality(self):
+        # Backward compatibility / UI helper
+        if self._target_render_time <= 20: return 'low'
+        if self._target_render_time <= 50: return 'medium'
+        return 'high'
+
+    @quality.setter
+    def quality(self, value):
+        if isinstance(value, str):
+            value = value.lower()
+        
+        if value in ['low', 0]:
+            self.target_render_time = 20
+        elif value in ['medium', 1]:
+            self.target_render_time = 50
+        elif value in ['high', 2]:
+            self.target_render_time = 100
+        else:
+            print(f"Warning: Invalid quality '{value}'. Ignoring.")
 
     def set_boundary_shape(self, shape):
         """
@@ -112,8 +145,8 @@ class HeatmapLayer(DataLayer):
         
         # 2. Perform Fast Update (Low-Res RBF)
         # Use 1/10th of the grid size for speed (e.g., 30x30 instead of 300x300)
-        low_res_size = max(10, self._grid_size // 10)
-        self._generate_heatmap(method='rbf', neighbors=30, grid_size=low_res_size)
+        low_res_size = max(10, int(self._grid_size / 1.6))
+        self._generate_heatmap(method='rbf', neighbors=self._neighbors, grid_size=low_res_size)
         self.update()
         
         # 3. Schedule High Quality Update
@@ -124,7 +157,7 @@ class HeatmapLayer(DataLayer):
         """
         Slot for HQ timer timeout. Performs RBF interpolation.
         """
-        self._generate_heatmap(method='rbf', neighbors=30, grid_size=self._grid_size)
+        self._generate_heatmap(method='rbf', neighbors=self._neighbors, grid_size=self._grid_size)
         self.update()
 
     def _generate_heatmap(self, method='rbf', neighbors=30, grid_size=None):
@@ -142,58 +175,32 @@ class HeatmapLayer(DataLayer):
             self._cached_image = None
             return
 
-        # 1. Generate Boundary Points (Ghost Points)
-        boundary_points, boundary_values = self._generate_boundary_points(points, values)
+        # print(f"Total: {duration_ms:.1f}ms | Boundary: {(t1-t0)*1000:.1f}ms | Interp: {(t3-t2)*1000:.1f}ms | Image: {(t4-t3)*1000:.1f}ms")
         
-        # 2. Combine Data
-        all_points = np.vstack((points, boundary_points))
-        all_values = np.concatenate((values, boundary_values))
-        
-        # 3. Create Grid based on Bounding Rect
-        # We expand the grid by 1 unit on all sides to avoid edge artifacts
-        rect = self._boundary_shape.boundingRect()
-        
-        # Calculate pixel size
-        dx = rect.width() / grid_size
-        dy = rect.height() / grid_size
-        
-        # Expand rect by 1 pixel size on all sides
-        expanded_rect = rect.adjusted(-dx, -dy, dx, dy)
-        self._heatmap_rect = expanded_rect
-        
-        # Update grid size to cover the expanded area
-        # We added 2 units of width/height (1 on each side)
-        expanded_grid_size = grid_size + 2
-        
-        x = np.linspace(expanded_rect.left(), expanded_rect.right(), expanded_grid_size)
-        y = np.linspace(expanded_rect.top(), expanded_rect.bottom(), expanded_grid_size)
-        X, Y = np.meshgrid(x, y)
-        
-        # 4. Interpolate
-        try:
-            if method == 'linear':
-                interp = LinearNDInterpolator(all_points, all_values, fill_value=np.nan)
-                Z = interp(X, Y)
-            else: # rbf
-                grid_points = np.column_stack((X.ravel(), Y.ravel()))
-                interp = RBFInterpolator(all_points, all_values, neighbors=neighbors, kernel='thin_plate_spline')
-                Z_flat = interp(grid_points)
-                Z = Z_flat.reshape(expanded_grid_size, expanded_grid_size)
-        except Exception as e:
-            print(f"Interpolation failed ({method}): {e}")
-            self._cached_image = None
-            return
+        self.renderingFinished.emit(duration_ms, grid_size)
 
-        # 5. Masking - REMOVED
-        # We rely on QPainter clipping in paint() for precise masking.
-        # This avoids the loop and ensures clean edges.
-        
-        # 6. Convert to QImage
-        self._cached_image = self._array_to_qimage(Z)
-        
-        end_time = time.perf_counter()
-        duration_ms = (end_time - start_time) * 1000
-        self.renderingFinished.emit(duration_ms)
+        # 7. Adaptive Quality Adjustment
+        if self._target_render_time > 0 and duration_ms > 0:
+            # Calculate target grid size
+            # Time is roughly proportional to grid_size^2 (number of evaluation points)
+            # target_time / current_time = target_grid^2 / current_grid^2
+            # target_grid = current_grid * sqrt(target_time / current_time)
+            
+            ratio = self._target_render_time / duration_ms
+            # Clamp ratio to prevent wild swings (e.g., 0.5x to 2.0x)
+            ratio = max(0.5, min(2.0, ratio))
+            
+            new_grid_size = int(grid_size * np.sqrt(ratio))
+            
+            # Clamp grid size
+            new_grid_size = max(30, min(500, new_grid_size))
+            
+            # Apply smoothing (EMA)
+            alpha = 0.3
+            self._grid_size = int(alpha * new_grid_size + (1 - alpha) * self._grid_size)
+            
+
+            print(f"Render: {duration_ms:.1f}ms, Target: {self._target_render_time}ms, Ratio {ratio:.2f} New Grid: {self._grid_size}")
 
     def _generate_boundary_points(self, points, values):
         """
@@ -260,30 +267,56 @@ class HeatmapLayer(DataLayer):
 
     def _array_to_qimage(self, Z):
         """
-        Converts 2D array Z to QImage.
+        Converts 2D array Z to QImage using vectorized operations.
         """
         height, width = Z.shape
-        image = QImage(width, height, QImage.Format.Format_ARGB32)
-        image.fill(Qt.GlobalColor.transparent) # Initialize with transparent
         
+        # 1. Normalize Z to 0-255 indices
         Z_norm = np.nan_to_num(Z, nan=-1)
         max_val = np.nanmax(Z_norm)
         if max_val == 0: max_val = 1
         
-        for y in range(height):
-            for x in range(width):
-                val = Z_norm[y, x]
-                if val == -1:
-                    continue # Already transparent
-                else:
-                    ratio = max(0.0, min(1.0, val / max_val))
-                    color = self._colormap.map(ratio)
-                    # Apply opacity if needed, but QGraphicsObject handles global opacity.
-                    # We just set alpha to 255 here.
-                    color.setAlpha(255)
-                    image.setPixelColor(x, y, color)
-                
-        return image
+        # Create indices array
+        # Values < 0 (NaNs) will be handled separately or mapped to 0
+        # We want -1 to stay -1 or be handled. 
+        # Let's map valid values to 0-255.
+        
+        # Mask for transparent pixels
+        mask = (Z_norm == -1)
+        
+        # Normalize valid values to 0.0-1.0
+        normalized = np.clip(Z_norm / max_val, 0.0, 1.0)
+        
+        # Map to 0-255 indices
+        indices = (normalized * 255).astype(np.uint8)
+        
+        # 2. Get LUT
+        lut = self._colormap.get_lut(256)
+        
+        # 3. Map indices to ARGB values
+        # lut is (256,) uint32
+        # buffer will be (height, width) uint32
+        buffer = lut[indices]
+        
+        # 4. Apply Transparency
+        # Set alpha to 0 for masked pixels
+        # 0x00FFFFFF mask clears Alpha channel, but we want 0x00000000 for full transparency
+        buffer[mask] = 0x00000000
+        
+        # 5. Create QImage from buffer
+        # We need to ensure the buffer is contiguous and kept alive
+        # QImage(uchar *data, int width, int height, Format format)
+        # We can use memoryview
+        
+        # Make sure buffer is C-contiguous
+        if not buffer.flags['C_CONTIGUOUS']:
+            buffer = np.ascontiguousarray(buffer)
+            
+        image = QImage(buffer.data, width, height, width * 4, QImage.Format.Format_ARGB32)
+        
+        # We must copy the image data because QImage doesn't own the buffer
+        # and 'buffer' might be garbage collected after this function returns.
+        return image.copy()
 
     def paint(self, painter, option, widget):
         if self._cached_image:

@@ -102,6 +102,8 @@ cd fieldview
 uv run examples/demo.py
 ```
 
+<img src="assets/demo.gif" alt="Demo" width="800">
+
 ## License
 
 MIT License

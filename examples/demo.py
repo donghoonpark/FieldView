@@ -1,5 +1,13 @@
 import sys
 import os
+
+# Force single-threaded execution for BLAS libraries to avoid overhead on small matrices
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 import numpy as np
 import pandas as pd
 from PySide6.QtWidgets import (QApplication, QMainWindow, QGraphicsView, QGraphicsScene, 
@@ -397,6 +405,10 @@ class DemoApp(QMainWindow):
         self.props.add_enum_property(root, "Colormap", self.heatmap_layer.colormap, list(COLORMAPS.keys()), 
                                      lambda n: setattr(self.heatmap_layer, 'colormap', n))
         
+        # Quality now maps to target render time
+        self.props.add_enum_property(root, "Quality", self.heatmap_layer.quality.capitalize(), ["Low", "Medium", "High"], 
+                                     lambda q: setattr(self.heatmap_layer, 'quality', q))
+        
         self.props.add_enum_property(root, "Boundary Shape", "Custom Polygon", ["Custom Polygon", "Rectangle", "Circle"], 
                                      self.change_boundary_shape)
         self.props.add_bool_property(root, "Edit Polygon", self.polygon_handles[0].isVisible() if self.polygon_handles else False, 
@@ -548,8 +560,8 @@ class DemoApp(QMainWindow):
         if event.angleDelta().y() < 0: factor = 1.0 / factor
         self.view.scale(factor, factor)
 
-    def update_render_time(self, duration_ms):
-        self.lbl_render_time.setText(f"Render Time: {duration_ms:.2f} ms")
+    def update_render_time(self, duration_ms, grid_size=0):
+        self.lbl_render_time.setText(f"Render Time: {duration_ms:.2f} ms (Grid: {grid_size})")
         
     def toggle_simulation(self, checked):
         if checked:

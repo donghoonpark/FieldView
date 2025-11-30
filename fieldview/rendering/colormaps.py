@@ -40,6 +40,25 @@ class Colormap:
         # Fallback (should cover 0.0 to 1.0 if stops are correct)
         return QColor(self.stops[-1][1])
 
+    def get_lut(self, size=256):
+        """
+        Returns a numpy array of shape (size,) containing uint32 ARGB values.
+        """
+        if hasattr(self, '_lut') and len(self._lut) == size:
+            return self._lut
+            
+        lut = np.zeros(size, dtype=np.uint32)
+        
+        for i in range(size):
+            val = i / (size - 1)
+            color = self.map(val)
+            # ARGB32 format: 0xAARRGGBB
+            # QColor.rgba() returns 0xAARRGGBB (unsigned int)
+            lut[i] = color.rgba()
+            
+        self._lut = lut
+        return lut
+
 # Standard Colormaps (Approximations)
 VIRIDIS = Colormap("viridis", [
     (0.0, "#440154"), (0.25, "#3b528b"), (0.5, "#21918c"), (0.75, "#5ec962"), (1.0, "#fde725")
