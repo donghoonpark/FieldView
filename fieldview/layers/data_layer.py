@@ -50,15 +50,19 @@ class DataLayer(Layer):
 
     def get_valid_data(self):
         """
-        Returns points and values excluding the excluded indices.
+        Returns points, values, and labels excluding the excluded indices.
         """
         points = self._data_container.points
         values = self._data_container.values
+        labels = self._data_container.labels
         
         if not self._excluded_indices:
-            return points, values
+            return points, values, labels
             
         # Create a mask for valid indices
         mask = [i for i in range(len(points)) if i not in self._excluded_indices]
         
-        return points[mask], values[mask]
+        # Filter labels (list)
+        valid_labels = [labels[i] for i in mask]
+        
+        return points[mask], values[mask], valid_labels

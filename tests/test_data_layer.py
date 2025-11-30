@@ -25,16 +25,18 @@ def test_datalayer_update_on_data_change(qtbot):
 
 def test_excluded_indices():
     dc = DataContainer()
-    dc.set_data([[0, 0], [1, 1], [2, 2]], [10, 20, 30])
+    dc.set_data([[0, 0], [1, 1], [2, 2]], [10, 20, 30], ["A", "B", "C"])
     layer = DataLayer(dc)
     
     layer.set_excluded_indices([1])
     assert layer.excluded_indices == {1}
     
-    points, values = layer.get_valid_data()
+    points, values, labels = layer.get_valid_data()
     assert len(points) == 2
     assert values[0] == 10
     assert values[1] == 30
+    assert labels[0] == "A"
+    assert labels[1] == "C"
 
 def test_add_remove_excluded_index():
     dc = DataContainer()

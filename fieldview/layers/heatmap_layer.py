@@ -52,11 +52,14 @@ class HeatmapLayer(DataLayer):
         """
         Override to trigger fast update and schedule HQ update.
         """
-        # 1. Perform Fast Update (Linear)
+        # 1. Cancel any pending HQ update
+        self._hq_timer.stop()
+        
+        # 2. Perform Fast Update (Linear)
         self._generate_heatmap(method='linear')
         self.update()
         
-        # 2. Schedule High Quality Update
+        # 3. Schedule High Quality Update
         self._hq_timer.start()
 
     def _perform_hq_update(self):
@@ -70,7 +73,7 @@ class HeatmapLayer(DataLayer):
         """
         Generates the heatmap image.
         """
-        points, values = self.get_valid_data()
+        points, values, _ = self.get_valid_data()
         
         if len(points) < 3 or self._boundary_shape.isEmpty():
             self._cached_image = None
