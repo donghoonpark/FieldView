@@ -210,12 +210,12 @@ class AllLayersDemo(QMainWindow):
 
     def create_dummy_svg(self):
         svg_content = b'''
-        <svg width="600" height="600" viewBox="-300 -300 600 600" xmlns="http://www.w3.org/2000/svg">
-            <rect x="-300" y="-300" width="600" height="600" fill="#222" stroke="#444" stroke-width="2"/>
-            <circle cx="0" cy="0" r="200" fill="none" stroke="#555" stroke-width="2" stroke-dasharray="10,10"/>
-            <line x1="-300" y1="0" x2="300" y2="0" stroke="#555" stroke-width="1"/>
-            <line x1="0" y1="-300" x2="0" y2="300" stroke="#555" stroke-width="1"/>
-            <text x="-280" y="-280" fill="#888" font-family="sans-serif" font-size="20">Floor Plan</text>
+        <svg width="400" height="400" viewBox="-200 -200 400 400" xmlns="http://www.w3.org/2000/svg">
+            <rect x="-200" y="-200" width="400" height="400" fill="#222" stroke="#444" stroke-width="2"/>
+            <circle cx="0" cy="0" r="150" fill="none" stroke="#555" stroke-width="2" stroke-dasharray="10,10"/>
+            <line x1="-200" y1="0" x2="200" y2="0" stroke="#555" stroke-width="1"/>
+            <line x1="0" y1="-200" x2="0" y2="200" stroke="#555" stroke-width="1"/>
+            <text x="-180" y="-180" fill="#888" font-family="sans-serif" font-size="20">Floor Plan</text>
         </svg>
         '''
         filename = "dummy_map.svg"
@@ -285,6 +285,23 @@ class AllLayersDemo(QMainWindow):
         layout_vis.addWidget(check_avoid)
         
         layout.addWidget(group_vis)
+        
+        # Text Settings
+        group_text = QGroupBox("Text Settings")
+        layout_text = QVBoxLayout(group_text)
+        
+        layout_text.addWidget(QLabel("Collision Offset:"))
+        slider_offset = QSlider(Qt.Orientation.Horizontal)
+        slider_offset.setRange(50, 150) # 0.5 to 1.5
+        slider_offset.setValue(60)
+        def update_offset(val):
+            factor = val / 100.0
+            self.value_layer.collision_offset_factor = factor
+            self.label_layer.collision_offset_factor = factor
+        slider_offset.valueChanged.connect(update_offset)
+        layout_text.addWidget(slider_offset)
+        
+        layout.addWidget(group_text)
         
         # Heatmap Settings
         group_heat = QGroupBox("Heatmap Settings")
