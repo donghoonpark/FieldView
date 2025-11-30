@@ -2,6 +2,8 @@
 
 **FieldView** is a high-performance Python + Qt (PySide6) library for 2D data visualization, specifically designed for handling irregular data points. It provides a robust rendering engine for heatmaps, markers, and text labels with minimal external dependencies.
 
+<img src="assets/quick_start.png" alt="Quick Start" width="480">
+
 ## Key Features
 
 *   **Fast Heatmap Rendering**: Hybrid RBF (Radial Basis Function) interpolation for high-quality visualization with real-time performance optimization.
@@ -85,8 +87,7 @@ view.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
 sys.exit(app.exec())
 ```
-
-![Quick Start](assets/quick_start.png)
+≈
 
 ## Running the Demo
 
