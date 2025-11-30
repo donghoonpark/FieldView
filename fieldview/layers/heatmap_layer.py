@@ -6,6 +6,8 @@ from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
 
 from fieldview.layers.data_layer import DataLayer
 
+from fieldview.rendering.colormaps import get_colormap
+
 class HeatmapLayer(DataLayer):
     """
     Layer for rendering a heatmap from data points.
@@ -20,6 +22,7 @@ class HeatmapLayer(DataLayer):
         self._boundary_shape = QPolygonF() # Default empty
         self._grid_size = 300
         self._hq_delay = 300 # ms
+        self._colormap = get_colormap("viridis")
         
         # Initialize with a default square shape
         self.set_boundary_shape(QPolygonF([
@@ -40,6 +43,15 @@ class HeatmapLayer(DataLayer):
         # Initial update
         self.update_layer()
 
+    @property
+    def colormap(self):
+        return self._colormap.name
+
+    @colormap.setter
+    def colormap(self, name):
+        self._colormap = get_colormap(name)
+        self.update_layer()
+
     def set_boundary_shape(self, shape: QPolygonF):
         """
         Sets the boundary polygon for the heatmap.
@@ -53,26 +65,33 @@ class HeatmapLayer(DataLayer):
         Override to trigger fast update and schedule HQ update.
         """
         # 1. Cancel any pending HQ update
-        self._hq_timer.stop()
+        if hasattr(self, '_hq_timer'):
+            self._hq_timer.stop()
         
-        # 2. Perform Fast Update (Linear)
-        self._generate_heatmap(method='linear')
+        # 2. Perform Fast Update (Low-Res RBF)
+        # Use 1/10th of the grid size for speed (e.g., 30x30 instead of 300x300)
+        low_res_size = max(10, self._grid_size // 10)
+        self._generate_heatmap(method='rbf', neighbors=30, grid_size=low_res_size)
         self.update()
         
         # 3. Schedule High Quality Update
-        self._hq_timer.start()
+        if hasattr(self, '_hq_timer'):
+            self._hq_timer.start()
 
     def _perform_hq_update(self):
         """
         Slot for HQ timer timeout. Performs RBF interpolation.
         """
-        self._generate_heatmap(method='rbf', neighbors=30)
+        self._generate_heatmap(method='rbf', neighbors=30, grid_size=self._grid_size)
         self.update()
 
-    def _generate_heatmap(self, method='rbf', neighbors=30):
+    def _generate_heatmap(self, method='rbf', neighbors=30, grid_size=None):
         """
         Generates the heatmap image.
         """
+        if grid_size is None:
+            grid_size = self._grid_size
+
         points, values, _ = self.get_valid_data()
         
         if len(points) < 3 or self._boundary_shape.isEmpty():
@@ -88,8 +107,8 @@ class HeatmapLayer(DataLayer):
         
         # 3. Create Grid based on Bounding Rect
         rect = self._boundary_shape.boundingRect()
-        x = np.linspace(rect.left(), rect.right(), self._grid_size)
-        y = np.linspace(rect.top(), rect.bottom(), self._grid_size)
+        x = np.linspace(rect.left(), rect.right(), grid_size)
+        y = np.linspace(rect.top(), rect.bottom(), grid_size)
         X, Y = np.meshgrid(x, y)
         
         # 4. Interpolate
@@ -101,29 +120,22 @@ class HeatmapLayer(DataLayer):
                 grid_points = np.column_stack((X.ravel(), Y.ravel()))
                 interp = RBFInterpolator(all_points, all_values, neighbors=neighbors, kernel='thin_plate_spline')
                 Z_flat = interp(grid_points)
-                Z = Z_flat.reshape(self._grid_size, self._grid_size)
+                Z = Z_flat.reshape(grid_size, grid_size)
         except Exception as e:
             print(f"Interpolation failed ({method}): {e}")
             self._cached_image = None
             return
 
         # 5. Masking using Polygon
-        # This can be optimized, but for now we check point by point or use a path
-        # For a 300x300 grid, 90k checks might be slow in pure Python.
-        # Optimization: Use matplotlib.path.Path if available, or just simple check for now.
-        # Since we are using PySide6, QPolygonF.containsPoint is available but might be slow in loop.
-        # Let's try a vectorized approach if possible, or just loop for POC.
-        
         # Simple loop optimization:
         # Create a mask array
         mask = np.zeros_like(Z, dtype=bool)
         
         # We can use QPolygonF.containsPoint
         # To speed up, we can iterate and check.
-        # For 300x300, it's acceptable for now.
         
-        for i in range(self._grid_size):
-            for j in range(self._grid_size):
+        for i in range(grid_size):
+            for j in range(grid_size):
                 pt = QPointF(X[i, j], Y[i, j])
                 if not self._boundary_shape.containsPoint(pt, Qt.FillRule.OddEvenFill):
                     Z[i, j] = np.nan
@@ -213,9 +225,10 @@ class HeatmapLayer(DataLayer):
                     continue # Already transparent
                 else:
                     ratio = max(0.0, min(1.0, val / max_val))
-                    r = int(255 * ratio)
-                    b = int(255 * (1 - ratio))
-                    color = QColor(r, 0, b, 255)
+                    color = self._colormap.map(ratio)
+                    # Apply opacity if needed, but QGraphicsObject handles global opacity.
+                    # We just set alpha to 255 here.
+                    color.setAlpha(255)
                     image.setPixelColor(x, y, color)
                 
         return image
@@ -223,5 +236,7 @@ class HeatmapLayer(DataLayer):
     def paint(self, painter, option, widget):
         if self._cached_image:
             rect = self._boundary_shape.boundingRect()
+            # Enable smooth transformation for upscaling low-res images
+            painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
             painter.drawImage(rect, self._cached_image)
 
