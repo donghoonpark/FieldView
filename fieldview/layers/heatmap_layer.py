@@ -41,7 +41,7 @@ class HeatmapLayer(DataLayer):
         self._hq_timer.timeout.connect(self._perform_hq_update)
         
         # Initial update
-        self.update_layer()
+        self.on_data_changed()
 
     @property
     def colormap(self):
@@ -64,6 +64,10 @@ class HeatmapLayer(DataLayer):
         """
         Override to trigger fast update and schedule HQ update.
         """
+        # Check if initialized
+        if not hasattr(self, '_grid_size'):
+            return
+
         # 1. Cancel any pending HQ update
         if hasattr(self, '_hq_timer'):
             self._hq_timer.stop()
@@ -140,8 +144,12 @@ class HeatmapLayer(DataLayer):
                 if not self._boundary_shape.containsPoint(pt, Qt.FillRule.OddEvenFill):
                     Z[i, j] = np.nan
         
-        # 6. Convert to QImage
-        self._cached_image = self._array_to_qimage(Z)
+        # 6. Pad the array to avoid edge artifacts during smoothing
+        # We pad with edge values. If edge is NaN, it pads with NaN (transparent).
+        Z_padded = np.pad(Z, 1, mode='edge')
+        
+        # 7. Convert to QImage
+        self._cached_image = self._array_to_qimage(Z_padded)
 
     def _generate_boundary_points(self, points, values):
         """
@@ -236,7 +244,25 @@ class HeatmapLayer(DataLayer):
     def paint(self, painter, option, widget):
         if self._cached_image:
             rect = self._boundary_shape.boundingRect()
+            
+            # Adjust rect to account for padding
+            # The image has 1 pixel padding on all sides.
+            # We need to expand the rect by the size of 1 logical pixel.
+            
+            img_w = self._cached_image.width()
+            img_h = self._cached_image.height()
+            
+            # Original grid size was (img_w - 2, img_h - 2)
+            grid_w = max(1, img_w - 2)
+            grid_h = max(1, img_h - 2)
+            
+            pixel_w = rect.width() / grid_w
+            pixel_h = rect.height() / grid_h
+            
+            # Expand rect
+            draw_rect = rect.adjusted(-pixel_w, -pixel_h, pixel_w, pixel_h)
+            
             # Enable smooth transformation for upscaling low-res images
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-            painter.drawImage(rect, self._cached_image)
+            painter.drawImage(draw_rect, self._cached_image)
 
