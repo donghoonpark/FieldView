@@ -32,7 +32,7 @@ class TextLayer(DataLayer):
         self._highlight_color = QColor(Qt.GlobalColor.yellow)
         self._highlighted_indices = set()
         
-        self._collision_avoidance_enabled = False
+        self._collision_avoidance_enabled = True
         self._collision_offset_factor = 0.6 # Default 60%
         self._cached_layout = None
 
@@ -132,26 +132,31 @@ class TextLayer(DataLayer):
             chosen_rect = None
             
             if self._collision_avoidance_enabled:
+                best_rect = None
+                min_cost = float('inf')
+                
                 for center in candidates:
                     candidate_rect = QRectF(rect)
                     candidate_rect.moveCenter(center)
                     
-                    # Check collision
-                    collision = False
+                    # Calculate cost (total intersection area)
+                    cost = 0.0
                     for placed in placed_rects:
-                        if candidate_rect.intersects(placed):
-                            collision = True
-                            break
+                        intersection = candidate_rect.intersected(placed)
+                        if not intersection.isEmpty():
+                            cost += intersection.width() * intersection.height()
                     
-                    if not collision:
-                        chosen_rect = candidate_rect
+                    # If perfect placement found, take it immediately
+                    if cost == 0:
+                        best_rect = candidate_rect
                         break
+                    
+                    # Otherwise keep track of the best so far
+                    if cost < min_cost:
+                        min_cost = cost
+                        best_rect = candidate_rect
                 
-                # If all collide, fallback to Center (first candidate)
-                if chosen_rect is None:
-                     candidate_rect = QRectF(rect)
-                     candidate_rect.moveCenter(candidates[0])
-                     chosen_rect = candidate_rect
+                chosen_rect = best_rect
             else:
                 # Just Center
                 chosen_rect = QRectF(rect)

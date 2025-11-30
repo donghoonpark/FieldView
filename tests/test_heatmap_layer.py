@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
-from PySide6.QtCore import QTimer, QPointF
-from PySide6.QtGui import QPolygonF
+from PySide6.QtCore import QTimer, QPointF, QRectF
+from PySide6.QtGui import QPolygonF, QPainterPath
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.heatmap_layer import HeatmapLayer
 
@@ -62,3 +62,42 @@ def test_not_enough_points(qtbot):
     
     dc.set_data([[0, 0]], [10])
     assert layer._cached_image is None
+
+def test_rendering_signal(qtbot):
+    dc = DataContainer()
+    layer = HeatmapLayer(dc)
+    
+    # Connect signal
+    with qtbot.waitSignal(layer.renderingFinished, timeout=1000) as blocker:
+        points = np.random.rand(10, 2) * 100
+        values = np.random.rand(10) * 100
+        dc.set_data(points, values)
+        
+    assert isinstance(blocker.args[0], float)
+    assert blocker.args[0] >= 0
+
+def test_boundary_shape_types(qtbot):
+    dc = DataContainer()
+    layer = HeatmapLayer(dc)
+    
+    # Test QRectF
+    rect = QRectF(0, 0, 100, 100)
+    layer.set_boundary_shape(rect)
+    assert not layer._boundary_shape.isEmpty()
+    
+    # Test QPainterPath
+    path = QPainterPath()
+    path.addEllipse(0, 0, 100, 100)
+    layer.set_boundary_shape(path)
+    assert not layer._boundary_shape.isEmpty()
+
+def test_colormap_property(qtbot):
+    dc = DataContainer()
+    layer = HeatmapLayer(dc)
+    
+    layer.colormap = "magma"
+    assert layer.colormap == "magma"
+    assert layer._colormap.name == "magma"
+    
+    layer.colormap = "viridis"
+    assert layer.colormap == "viridis"

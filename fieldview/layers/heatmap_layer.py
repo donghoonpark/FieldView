@@ -23,15 +23,13 @@ class HeatmapLayer(DataLayer):
         
         # Configuration
         self._boundary_shape = QPolygonF() # Default empty
+        self._auto_boundary = True # Default to auto-fit data
         self._grid_size = 300
         self._hq_delay = 300 # ms
         self._colormap = get_colormap("viridis")
         
-        # Initialize with a default square shape
-        self.set_boundary_shape(QPolygonF([
-            QPointF(-150, -150), QPointF(150, -150),
-            QPointF(150, 150), QPointF(-150, 150)
-        ]))
+        # Initialize with empty shape, will be set by on_data_changed if data exists
+        # or user can set it manually.
         
         # State
         self._cached_image = None
@@ -60,7 +58,10 @@ class HeatmapLayer(DataLayer):
         """
         Sets the boundary polygon for the heatmap.
         Accepts QPolygonF, QRectF, or QPainterPath.
+        Disables auto-boundary mode.
         """
+        self._auto_boundary = False
+        
         if isinstance(shape, QRectF):
             self._boundary_shape = QPolygonF(shape)
         elif isinstance(shape, QPainterPath):
@@ -81,6 +82,29 @@ class HeatmapLayer(DataLayer):
         # Check if initialized
         if not hasattr(self, '_grid_size'):
             return
+
+        # Auto-boundary logic
+        if self._auto_boundary:
+            points, _, _ = self.get_valid_data()
+            if len(points) > 0:
+                min_x = np.min(points[:, 0])
+                max_x = np.max(points[:, 0])
+                min_y = np.min(points[:, 1])
+                max_y = np.max(points[:, 1])
+                
+                # Add some padding (e.g. 10%)
+                width = max_x - min_x
+                height = max_y - min_y
+                padding_x = max(10, width * 0.1)
+                padding_y = max(10, height * 0.1)
+                
+                rect = QRectF(min_x - padding_x, min_y - padding_y, 
+                              width + 2*padding_x, height + 2*padding_y)
+                self._boundary_shape = QPolygonF(rect)
+                self.set_bounding_rect(rect)
+            else:
+                self._boundary_shape = QPolygonF()
+                self.set_bounding_rect(QRectF())
 
         # 1. Cancel any pending HQ update
         if hasattr(self, '_hq_timer'):
