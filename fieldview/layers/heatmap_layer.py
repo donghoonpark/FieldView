@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.interpolate import RBFInterpolator, LinearNDInterpolator
 from scipy.spatial import cKDTree
-from PySide6.QtGui import QImage, QPainter, QColor, QPolygonF
+from PySide6.QtGui import QImage, QPainter, QColor, QPolygonF, QPainterPath
 from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
 
 from fieldview.layers.data_layer import DataLayer
@@ -32,6 +32,7 @@ class HeatmapLayer(DataLayer):
         
         # State
         self._cached_image = None
+        self._heatmap_rect = QRectF()
         self._is_hq_pending = False
         
         # Timer for High Quality update
@@ -52,13 +53,23 @@ class HeatmapLayer(DataLayer):
         self._colormap = get_colormap(name)
         self.update_layer()
 
-    def set_boundary_shape(self, shape: QPolygonF):
+    def set_boundary_shape(self, shape):
         """
         Sets the boundary polygon for the heatmap.
+        Accepts QPolygonF, QRectF, or QPainterPath.
         """
-        self._boundary_shape = shape
-        self.set_bounding_rect(shape.boundingRect())
-        self.update_layer()
+        if isinstance(shape, QRectF):
+            self._boundary_shape = QPolygonF(shape)
+        elif isinstance(shape, QPainterPath):
+            self._boundary_shape = shape.toFillPolygon()
+        elif isinstance(shape, QPolygonF):
+            self._boundary_shape = shape
+        else:
+            raise TypeError("Shape must be QPolygonF, QRectF, or QPainterPath")
+
+        self.set_bounding_rect(self._boundary_shape.boundingRect())
+        # Trigger update to regenerate heatmap with new boundary
+        self.on_data_changed()
 
     def on_data_changed(self):
         """
@@ -110,9 +121,23 @@ class HeatmapLayer(DataLayer):
         all_values = np.concatenate((values, boundary_values))
         
         # 3. Create Grid based on Bounding Rect
+        # We expand the grid by 1 unit on all sides to avoid edge artifacts
         rect = self._boundary_shape.boundingRect()
-        x = np.linspace(rect.left(), rect.right(), grid_size)
-        y = np.linspace(rect.top(), rect.bottom(), grid_size)
+        
+        # Calculate pixel size
+        dx = rect.width() / grid_size
+        dy = rect.height() / grid_size
+        
+        # Expand rect by 1 pixel size on all sides
+        expanded_rect = rect.adjusted(-dx, -dy, dx, dy)
+        self._heatmap_rect = expanded_rect
+        
+        # Update grid size to cover the expanded area
+        # We added 2 units of width/height (1 on each side)
+        expanded_grid_size = grid_size + 2
+        
+        x = np.linspace(expanded_rect.left(), expanded_rect.right(), expanded_grid_size)
+        y = np.linspace(expanded_rect.top(), expanded_rect.bottom(), expanded_grid_size)
         X, Y = np.meshgrid(x, y)
         
         # 4. Interpolate
@@ -124,32 +149,18 @@ class HeatmapLayer(DataLayer):
                 grid_points = np.column_stack((X.ravel(), Y.ravel()))
                 interp = RBFInterpolator(all_points, all_values, neighbors=neighbors, kernel='thin_plate_spline')
                 Z_flat = interp(grid_points)
-                Z = Z_flat.reshape(grid_size, grid_size)
+                Z = Z_flat.reshape(expanded_grid_size, expanded_grid_size)
         except Exception as e:
             print(f"Interpolation failed ({method}): {e}")
             self._cached_image = None
             return
 
-        # 5. Masking using Polygon
-        # Simple loop optimization:
-        # Create a mask array
-        mask = np.zeros_like(Z, dtype=bool)
+        # 5. Masking - REMOVED
+        # We rely on QPainter clipping in paint() for precise masking.
+        # This avoids the loop and ensures clean edges.
         
-        # We can use QPolygonF.containsPoint
-        # To speed up, we can iterate and check.
-        
-        for i in range(grid_size):
-            for j in range(grid_size):
-                pt = QPointF(X[i, j], Y[i, j])
-                if not self._boundary_shape.containsPoint(pt, Qt.FillRule.OddEvenFill):
-                    Z[i, j] = np.nan
-        
-        # 6. Pad the array to avoid edge artifacts during smoothing
-        # We pad with edge values. If edge is NaN, it pads with NaN (transparent).
-        Z_padded = np.pad(Z, 1, mode='edge')
-        
-        # 7. Convert to QImage
-        self._cached_image = self._array_to_qimage(Z_padded)
+        # 6. Convert to QImage
+        self._cached_image = self._array_to_qimage(Z)
 
     def _generate_boundary_points(self, points, values):
         """
@@ -243,26 +254,13 @@ class HeatmapLayer(DataLayer):
 
     def paint(self, painter, option, widget):
         if self._cached_image:
-            rect = self._boundary_shape.boundingRect()
+            # Clip to polygon
+            path = QPainterPath()
+            path.addPolygon(self._boundary_shape)
+            painter.setClipPath(path)
             
-            # Adjust rect to account for padding
-            # The image has 1 pixel padding on all sides.
-            # We need to expand the rect by the size of 1 logical pixel.
-            
-            img_w = self._cached_image.width()
-            img_h = self._cached_image.height()
-            
-            # Original grid size was (img_w - 2, img_h - 2)
-            grid_w = max(1, img_w - 2)
-            grid_h = max(1, img_h - 2)
-            
-            pixel_w = rect.width() / grid_w
-            pixel_h = rect.height() / grid_h
-            
-            # Expand rect
-            draw_rect = rect.adjusted(-pixel_w, -pixel_h, pixel_w, pixel_h)
-            
+            # Draw the expanded heatmap
             # Enable smooth transformation for upscaling low-res images
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
-            painter.drawImage(draw_rect, self._cached_image)
+            painter.drawImage(self._heatmap_rect, self._cached_image)
 

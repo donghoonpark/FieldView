@@ -325,6 +325,14 @@ class AllLayersDemo(QMainWindow):
         check_poly.toggled.connect(self.toggle_polygon_handles)
         layout_heat.addWidget(check_poly)
         
+        layout_heat.addWidget(check_poly)
+        
+        layout_heat.addWidget(QLabel("Boundary Shape:"))
+        combo_shape = QComboBox()
+        combo_shape.addItems(["Custom Polygon", "Rectangle", "Circle"])
+        combo_shape.currentTextChanged.connect(self.change_boundary_shape)
+        layout_heat.addWidget(combo_shape)
+        
         layout.addWidget(group_heat)
         
         # Data Table
@@ -448,6 +456,20 @@ class AllLayersDemo(QMainWindow):
             h.setVisible(visible)
         for e in self.polygon_edges:
             e.setVisible(visible)
+
+    def change_boundary_shape(self, shape_name):
+        if shape_name == "Custom Polygon":
+            self.heatmap_layer.set_boundary_shape(self.heatmap_polygon)
+            self.toggle_polygon_handles(True)
+        elif shape_name == "Rectangle":
+            rect = QRectF(-200, -200, 400, 400)
+            self.heatmap_layer.set_boundary_shape(rect)
+            self.toggle_polygon_handles(False)
+        elif shape_name == "Circle":
+            path = QPainterPath()
+            path.addEllipse(-200, -200, 400, 400)
+            self.heatmap_layer.set_boundary_shape(path)
+            self.toggle_polygon_handles(False)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
