@@ -64,10 +64,10 @@ python + Qt based 2d data visualization solution
 │   ├── test_layers.py
 │   └── test_rendering.py
 └── examples/
-└── examples/
     ├── demo.py              # Comprehensive demo with Property Editor
     ├── heatmap_demo.py      # Simple interactive heatmap demo
-    └── generate_data.py     # Data generation utility
+    ├── generate_data.py     # Data generation utility
+    └── floorplan.svg        # Demo asset
 ```
 
 ## Key Components
@@ -153,6 +153,7 @@ classDiagram
     class HeatmapLayer {
         +Colormap colormap
         +QPolygonF boundary_shape
+        +signal renderingFinished
         +set_boundary_shape(polygon)
         +set_colormap(cmap)
     }
@@ -164,11 +165,14 @@ classDiagram
         <<Abstract>>
         +QFont font
         +List~int~ highlighted_indices
+        +bool collision_avoidance_enabled
+        +float collision_offset_factor
         +set_font(font)
         +set_highlighted_indices(indices)
     }
     class ValueLayer {
         +int decimal_places
+        +str prefix
         +str suffix
         +str postfix
     }
