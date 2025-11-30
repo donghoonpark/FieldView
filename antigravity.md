@@ -64,8 +64,10 @@ python + Qt based 2d data visualization solution
 │   ├── test_layers.py
 │   └── test_rendering.py
 └── examples/
-    ├── simple_heatmap.py
-    └── interactive_demo.py
+└── examples/
+    ├── demo.py              # Comprehensive demo with Property Editor
+    ├── heatmap_demo.py      # Simple interactive heatmap demo
+    └── generate_data.py     # Data generation utility
 ```
 
 ## Key Components
@@ -206,12 +208,21 @@ classDiagram
     - **Application**: This applies to all mask shapes (Polygon, Circle, Rect) by approximating curves/lines as segmented polylines.
 
 ### Heatmap Interpolation
-- **Strategy**: Local RBF (Compact Support)
-- **Implementation**: `scipy.interpolate.RBFInterpolator` with `kernel='thin_plate_spline'`.
+- **Strategy**: Hybrid RBF (Radial Basis Function)
+- **Implementation**:
+    - **Realtime Mode**:
+        - Triggered during continuous interaction (e.g., dragging points).
+        - Uses **Low-Resolution RBF** (1/10th grid size) for high performance.
+        - Upscaled using `SmoothPixmapTransform` for visual continuity.
+    - **High Quality Mode**:
+        - Triggered automatically after **300ms** of inactivity (debounce timer).
+        - Uses **Full-Resolution RBF** (`neighbors=30`, `kernel='thin_plate_spline'`).
+        - Ensures maximum visual fidelity when static.
 - **Parameters**:
-    - `neighbors`: **30** (Default).
-    - **Rationale**: Optimized for 60Hz rendering on a 200x200 grid. Provides a balance between smoothness (requires ~20+) and real-time performance.
-- **Dynamic Quality Adjustment**:
-    - **Fast Mode**: **Linear Interpolation** (`scipy.interpolate.LinearNDInterpolator`). Used during continuous interaction for maximum speed.
-    - **High Quality Mode**: **Local RBF** (`neighbors=30`). Triggered automatically after **300ms** of inactivity.
+    - `neighbors`: **30** (Default). Optimized for 60Hz rendering on a 200x200 grid.
+    - `grid_size`: **300** (Default).
+
+### Performance Monitoring
+- **Render Time**: Exposed via `renderingFinished` signal in `HeatmapLayer`.
+- **Demo**: Includes real-time render time display and noise simulation for stress testing.
 

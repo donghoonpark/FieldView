@@ -153,3 +153,7 @@ cython_debug/
 
 # MacOS
 .DS_Store
+
+# Generated demo files
+dummy_data.csv
+dummy_map.svg

@@ -1,8 +1,9 @@
 import numpy as np
+import time
 from scipy.interpolate import RBFInterpolator, LinearNDInterpolator
 from scipy.spatial import cKDTree
 from PySide6.QtGui import QImage, QPainter, QColor, QPolygonF, QPainterPath
-from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
+from PySide6.QtCore import Qt, QTimer, QRectF, QPointF, Signal
 
 from fieldview.layers.data_layer import DataLayer
 
@@ -15,6 +16,8 @@ class HeatmapLayer(DataLayer):
     and dynamic quality adjustment.
     Supports arbitrary polygon boundaries.
     """
+    renderingFinished = Signal(float) # Duration in ms
+
     def __init__(self, data_container, parent=None):
         super().__init__(data_container, parent)
         
@@ -104,6 +107,8 @@ class HeatmapLayer(DataLayer):
         """
         Generates the heatmap image.
         """
+        start_time = time.perf_counter()
+
         if grid_size is None:
             grid_size = self._grid_size
 
@@ -161,6 +166,10 @@ class HeatmapLayer(DataLayer):
         
         # 6. Convert to QImage
         self._cached_image = self._array_to_qimage(Z)
+        
+        end_time = time.perf_counter()
+        duration_ms = (end_time - start_time) * 1000
+        self.renderingFinished.emit(duration_ms)
 
     def _generate_boundary_points(self, points, values):
         """
