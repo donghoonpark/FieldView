@@ -2,7 +2,7 @@
 name = "fieldview"
 version = "0.1.0"
 description = "Python + Qt based 2D data visualization solution for irregular data points"
-readme = "antigravity.md"
+readme = "README.md"
 authors = [{name = "FieldView Team", email = "dev@fieldview.org"}]
 requires-python = ">=3.10"
 dependencies = [
