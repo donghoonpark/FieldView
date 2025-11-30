@@ -1,13 +1,17 @@
 import pytest
 import numpy as np
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, QPointF
+from PySide6.QtGui import QPolygonF
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.heatmap_layer import HeatmapLayer
 
 def test_heatmap_initialization(qtbot):
     dc = DataContainer()
     layer = HeatmapLayer(dc)
-    assert layer.radius == 150.0
+    # Default shape is a square 300x300 centered at 0
+    rect = layer.boundingRect()
+    assert rect.width() == 300
+    assert rect.height() == 300
 
 def test_heatmap_update(qtbot):
     dc = DataContainer()
@@ -31,7 +35,14 @@ def test_boundary_points_generation():
     dc = DataContainer()
     layer = HeatmapLayer(dc)
     
-    points = np.array([[0, 0], [10, 0]])
+    # Set a simple square polygon
+    polygon = QPolygonF([
+        QPointF(0, 0), QPointF(100, 0),
+        QPointF(100, 100), QPointF(0, 100)
+    ])
+    layer.set_boundary_shape(polygon)
+    
+    points = np.array([[10, 10], [90, 90]])
     values = np.array([0, 10])
     
     b_points, b_values = layer._generate_boundary_points(points, values)
@@ -39,9 +50,11 @@ def test_boundary_points_generation():
     assert len(b_points) > 0
     assert len(b_values) == len(b_points)
     
-    # Check if boundary points are on the circle
-    radii = np.sqrt(np.sum(b_points**2, axis=1))
-    assert np.allclose(radii, layer.radius)
+    # Check if boundary points are on the polygon perimeter
+    # Simple check: x is 0 or 100, or y is 0 or 100
+    on_boundary = np.isclose(b_points[:, 0], 0) | np.isclose(b_points[:, 0], 100) | \
+                  np.isclose(b_points[:, 1], 0) | np.isclose(b_points[:, 1], 100)
+    assert np.all(on_boundary)
 
 def test_not_enough_points(qtbot):
     dc = DataContainer()

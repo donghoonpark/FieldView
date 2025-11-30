@@ -150,8 +150,8 @@ classDiagram
     }
     class HeatmapLayer {
         +Colormap colormap
-        +QPolygonF mask
-        +set_mask(polygon)
+        +QPolygonF boundary_shape
+        +set_boundary_shape(polygon)
         +set_colormap(cmap)
     }
     class SvgLayer {

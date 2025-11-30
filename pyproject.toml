@@ -3,15 +3,16 @@ name = "fieldview"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy>=2.3.5",
+    "numpy>=1.24",
     "pyside6>=6.10.1",
-    "scipy>=1.16.3",
+    "scipy>=1.10",
 ]
 
 [dependency-groups]
 dev = [
+    "pandas>=2.3.3",
     "pytest>=9.0.1",
     "pytest-qt>=4.5.0",
 ]

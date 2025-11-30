@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.interpolate import RBFInterpolator, LinearNDInterpolator
 from scipy.spatial import cKDTree
-from PySide6.QtGui import QImage, QPainter, QColor
-from PySide6.QtCore import Qt, QTimer, QRectF
+from PySide6.QtGui import QImage, QPainter, QColor, QPolygonF
+from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
 
 from fieldview.layers.data_layer import DataLayer
 
@@ -11,14 +11,21 @@ class HeatmapLayer(DataLayer):
     Layer for rendering a heatmap from data points.
     Implements hybrid interpolation (Linear for speed, RBF for quality)
     and dynamic quality adjustment.
+    Supports arbitrary polygon boundaries.
     """
     def __init__(self, data_container, parent=None):
         super().__init__(data_container, parent)
         
         # Configuration
-        self._radius = 150.0 # Default radius
+        self._boundary_shape = QPolygonF() # Default empty
         self._grid_size = 300
         self._hq_delay = 300 # ms
+        
+        # Initialize with a default square shape
+        self.set_boundary_shape(QPolygonF([
+            QPointF(-150, -150), QPointF(150, -150),
+            QPointF(150, 150), QPointF(-150, 150)
+        ]))
         
         # State
         self._cached_image = None
@@ -33,13 +40,12 @@ class HeatmapLayer(DataLayer):
         # Initial update
         self.update_layer()
 
-    @property
-    def radius(self):
-        return self._radius
-
-    @radius.setter
-    def radius(self, value):
-        self._radius = value
+    def set_boundary_shape(self, shape: QPolygonF):
+        """
+        Sets the boundary polygon for the heatmap.
+        """
+        self._boundary_shape = shape
+        self.set_bounding_rect(shape.boundingRect())
         self.update_layer()
 
     def on_data_changed(self):
@@ -66,7 +72,7 @@ class HeatmapLayer(DataLayer):
         """
         points, values = self.get_valid_data()
         
-        if len(points) < 3:
+        if len(points) < 3 or self._boundary_shape.isEmpty():
             self._cached_image = None
             return
 
@@ -77,9 +83,10 @@ class HeatmapLayer(DataLayer):
         all_points = np.vstack((points, boundary_points))
         all_values = np.concatenate((values, boundary_values))
         
-        # 3. Create Grid
-        x = np.linspace(-self._radius, self._radius, self._grid_size)
-        y = np.linspace(-self._radius, self._radius, self._grid_size)
+        # 3. Create Grid based on Bounding Rect
+        rect = self._boundary_shape.boundingRect()
+        x = np.linspace(rect.left(), rect.right(), self._grid_size)
+        y = np.linspace(rect.top(), rect.bottom(), self._grid_size)
         X, Y = np.meshgrid(x, y)
         
         # 4. Interpolate
@@ -97,9 +104,26 @@ class HeatmapLayer(DataLayer):
             self._cached_image = None
             return
 
-        # 5. Masking
-        mask = (X**2 + Y**2) > self._radius**2
-        Z[mask] = np.nan
+        # 5. Masking using Polygon
+        # This can be optimized, but for now we check point by point or use a path
+        # For a 300x300 grid, 90k checks might be slow in pure Python.
+        # Optimization: Use matplotlib.path.Path if available, or just simple check for now.
+        # Since we are using PySide6, QPolygonF.containsPoint is available but might be slow in loop.
+        # Let's try a vectorized approach if possible, or just loop for POC.
+        
+        # Simple loop optimization:
+        # Create a mask array
+        mask = np.zeros_like(Z, dtype=bool)
+        
+        # We can use QPolygonF.containsPoint
+        # To speed up, we can iterate and check.
+        # For 300x300, it's acceptable for now.
+        
+        for i in range(self._grid_size):
+            for j in range(self._grid_size):
+                pt = QPointF(X[i, j], Y[i, j])
+                if not self._boundary_shape.containsPoint(pt, Qt.FillRule.OddEvenFill):
+                    Z[i, j] = np.nan
         
         # 6. Convert to QImage
         self._cached_image = self._array_to_qimage(Z)
@@ -116,16 +140,38 @@ class HeatmapLayer(DataLayer):
         distances, _ = tree.query(points, k=2)
         avg_dist = np.mean(distances[:, 1])
         target_segment_length = avg_dist * 1.2
+        if target_segment_length <= 0: target_segment_length = 10.0
         
-        circumference = 2 * np.pi * self._radius
-        n_boundary_points = int(np.ceil(circumference / target_segment_length))
-        n_boundary_points = max(10, n_boundary_points) # Minimum points
+        boundary_points_list = []
         
-        theta = np.linspace(0, 2 * np.pi, n_boundary_points, endpoint=False)
-        bx = self._radius * np.cos(theta)
-        by = self._radius * np.sin(theta)
-        boundary_points = np.column_stack((bx, by))
+        # Iterate through polygon edges
+        poly_points = [self._boundary_shape.at(i) for i in range(self._boundary_shape.count())]
+        if self._boundary_shape.isClosed():
+             # QPolygonF might be closed or not depending on creation. 
+             # If last point != first point, close it effectively for iteration
+             if poly_points[0] != poly_points[-1]:
+                 poly_points.append(poly_points[0])
+        else:
+             poly_points.append(poly_points[0]) # Close the loop
+             
+        for i in range(len(poly_points) - 1):
+            p1 = np.array([poly_points[i].x(), poly_points[i].y()])
+            p2 = np.array([poly_points[i+1].x(), poly_points[i+1].y()])
+            
+            segment_len = np.linalg.norm(p2 - p1)
+            n_segments = int(np.ceil(segment_len / target_segment_length))
+            n_segments = max(1, n_segments)
+            
+            for j in range(n_segments):
+                t = j / n_segments
+                pt = p1 + t * (p2 - p1)
+                boundary_points_list.append(pt)
+                
+        boundary_points = np.array(boundary_points_list)
         
+        if len(boundary_points) == 0:
+             return np.empty((0, 2)), np.empty((0,))
+
         # IDW for Values
         dists, indices = tree.query(boundary_points, k=2)
         boundary_values = []
@@ -151,30 +197,28 @@ class HeatmapLayer(DataLayer):
         """
         height, width = Z.shape
         image = QImage(width, height, QImage.Format.Format_ARGB32)
+        image.fill(Qt.GlobalColor.transparent) # Initialize with transparent
         
         Z_norm = np.nan_to_num(Z, nan=-1)
         max_val = np.nanmax(Z_norm)
         if max_val == 0: max_val = 1
         
-        # This is slow in Python, but fine for POC. 
-        # In production, use numpy-to-bytes conversion.
         for y in range(height):
             for x in range(width):
                 val = Z_norm[y, x]
                 if val == -1:
-                    color = QColor(0, 0, 0, 0)
+                    continue # Already transparent
                 else:
                     ratio = max(0.0, min(1.0, val / max_val))
                     r = int(255 * ratio)
                     b = int(255 * (1 - ratio))
                     color = QColor(r, 0, b, 255)
-                image.setPixelColor(x, y, color)
+                    image.setPixelColor(x, y, color)
                 
         return image
 
     def paint(self, painter, option, widget):
         if self._cached_image:
-            # Draw image centered in the bounding rect
-            # Assuming bounding rect is centered at 0,0 and size is 2*radius
-            target_rect = QRectF(-self._radius, -self._radius, self._radius * 2, self._radius * 2)
-            painter.drawImage(target_rect, self._cached_image)
+            rect = self._boundary_shape.boundingRect()
+            painter.drawImage(rect, self._cached_image)
+
