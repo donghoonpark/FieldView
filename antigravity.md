@@ -40,29 +40,28 @@ python + Qt based 2d data visualization solution
 │   ├── __init__.py
 │   ├── core/
 │   │   ├── __init__.py
-│   │   ├── data.py          # DataContainer model for efficient data handling
-│   │   ├── layer.py         # Base class for all layers
-│   │   └── signals.py       # Custom Qt signals for library-wide events
+│   │   ├── data_container.py # DataContainer model for efficient data handling
+│   │   └── signals.py        # Custom Qt signals for library-wide events
 │   ├── layers/
 │   │   ├── __init__.py
-│   │   ├── data.py     # Abstract base class for data-driven layers
-│   │   ├── svg.py           # SVG layer implementation
-│   │   ├── heatmap.py       # Heatmap layer with polygon mask support
-│   │   ├── text.py          # TextLayer, ValueLayer, LabelLayer
-│   │   └── pin.py           # Pin/Point layer
+│   │   ├── layer.py          # Base class for all layers
+│   │   ├── data_layer.py     # Abstract base class for data-driven layers
+│   │   ├── svg_layer.py      # SVG layer implementation
+│   │   ├── heatmap_layer.py  # Heatmap layer with polygon mask support
+│   │   ├── text_layer.py     # TextLayer, ValueLayer, LabelLayer
+│   │   └── pin_layer.py      # Pin/Point layer
 │   ├── rendering/
 │   │   ├── __init__.py
-│   │   ├── canvas.py        # Main drawing canvas (QGraphicsScene subclass)
-│   │   ├── view.py          # Viewport handling (QGraphicsView subclass)
-│   │   └── colormaps.py     # Color mapping utilities for heatmap
+│   │   └── colormaps.py      # Color mapping utilities for heatmap
 │   └── ui/
-│       ├── __init__.py
-│       └── widget.py        # Main FieldView Qt Widget
+│       └── __init__.py
 ├── tests/
 │   ├── __init__.py
-│   ├── test_core.py
-│   ├── test_layers.py
-│   └── test_rendering.py
+│   ├── test_data_container.py
+│   ├── test_data_layer.py
+│   ├── test_heatmap_layer.py
+│   ├── test_misc_layers.py
+│   └── test_text_layer.py
 └── examples/
     ├── demo.py              # Comprehensive demo with Property Editor
     ├── heatmap_demo.py      # Simple interactive heatmap demo
