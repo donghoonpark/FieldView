@@ -22,6 +22,7 @@ class SvgLayer(Layer):
         """
         self._svg_path = path
         if self._renderer.load(path):
+            self.set_bounding_rect(self._renderer.viewBoxF())
             self.update_layer()
         else:
             print(f"Failed to load SVG: {path}")

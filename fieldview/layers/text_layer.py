@@ -1,5 +1,6 @@
 from PySide6.QtGui import QFont, QColor, QFontDatabase
 from PySide6.QtCore import Qt, QRectF, QPointF
+import os
 from fieldview.layers.data_layer import DataLayer
 
 class TextLayer(DataLayer):
@@ -10,10 +11,20 @@ class TextLayer(DataLayer):
     def __init__(self, data_container, parent=None):
         super().__init__(data_container, parent)
         
-        # Default Font (JetBrains Mono if available, else Monospace)
-        self._font = QFont("JetBrains Mono")
-        if not QFontDatabase.families(QFontDatabase.WritingSystem.Latin).count("JetBrains Mono"):
-             self._font.setStyleHint(QFont.StyleHint.Monospace)
+        # Load embedded font
+        font_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'fonts', 'JetBrainsMono-Regular.ttf')
+        font_path = os.path.abspath(font_path)
+        
+        font_id = QFontDatabase.addApplicationFont(font_path)
+        if font_id != -1:
+            font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
+            self._font = QFont(font_family)
+        else:
+            # Fallback
+            self._font = QFont("JetBrains Mono")
+            if not QFontDatabase.families(QFontDatabase.WritingSystem.Latin).count("JetBrains Mono"):
+                 self._font.setStyleHint(QFont.StyleHint.Monospace)
+        
         self._font.setPixelSize(12)
         
         self._text_color = QColor(Qt.GlobalColor.white)
@@ -22,6 +33,7 @@ class TextLayer(DataLayer):
         self._highlighted_indices = set()
         
         self._collision_avoidance_enabled = False
+        self._collision_offset_factor = 0.6 # Default 60%
         self._cached_layout = None
 
     @property
@@ -48,6 +60,15 @@ class TextLayer(DataLayer):
     @collision_avoidance_enabled.setter
     def collision_avoidance_enabled(self, enabled):
         self._collision_avoidance_enabled = enabled
+        self.update_layer()
+
+    @property
+    def collision_offset_factor(self):
+        return self._collision_offset_factor
+
+    @collision_offset_factor.setter
+    def collision_offset_factor(self, factor):
+        self._collision_offset_factor = factor
         self.update_layer()
 
     def update_layer(self):
@@ -81,11 +102,6 @@ class TextLayer(DataLayer):
         layout = {} # index -> QRectF
         placed_rects = []
         
-        # Offsets: Center, Top, Bottom, Left, Right
-        # Assuming text height ~15-20px. 
-        # Center is (0,0). Top is (0, -h). Bottom is (0, h).
-        # We need to know the size of each text first.
-        
         for i, (x, y) in enumerate(points):
             text = self._get_text(i, values[i], labels[i])
             if not text: continue
@@ -95,25 +111,28 @@ class TextLayer(DataLayer):
             rect.adjust(-2, -2, 2, 2)
             w, h = rect.width(), rect.height()
             
+            # Calculate offset distance based on factor
+            # Factor 0.6 means move 60% of dimension.
+            # Center is 0 offset.
+            # Top: y - h * factor
+            # Bottom: y + h * factor
+            # Left: x - w * factor
+            # Right: x + w * factor
+            
+            factor = self._collision_offset_factor
+            
             candidates = [
                 QPointF(x, y), # Center
-                QPointF(x, y - h), # Top
-                QPointF(x, y + h), # Bottom
-                QPointF(x - w, y), # Left
-                QPointF(x + w, y)  # Right
+                QPointF(x, y - h * factor), # Top
+                QPointF(x, y + h * factor), # Bottom
+                QPointF(x - w * factor, y), # Left
+                QPointF(x + w * factor, y)  # Right
             ]
             
             chosen_rect = None
             
             if self._collision_avoidance_enabled:
                 for center in candidates:
-                    # Create candidate rect centered at 'center'
-                    # Wait, boundingRect returns rect with (0, -ascent) usually.
-                    # We want to center it at 'center'.
-                    
-                    # Original logic: rect.moveCenter(QPointF(x, y).toPoint())
-                    # So let's replicate that.
-                    
                     candidate_rect = QRectF(rect)
                     candidate_rect.moveCenter(center)
                     

@@ -6,8 +6,8 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QGraphicsView, QGraphi
                                QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
                                QCheckBox, QGroupBox, QSlider, QComboBox, QTableView, 
                                QHeaderView, QAbstractItemView, QGraphicsEllipseItem, QDockWidget, QGraphicsLineItem)
-from PySide6.QtGui import QPainter, QPolygonF, QColor, QPixmap, QBrush, QPen, QStandardItemModel, QStandardItem
-from PySide6.QtCore import Qt, QPointF, QAbstractTableModel, QModelIndex, Signal
+from PySide6.QtGui import QPainterPath,QPainter, QPolygonF, QColor, QPixmap, QBrush, QPen, QStandardItemModel, QStandardItem
+from PySide6.QtCore import Qt, QPointF, QAbstractTableModel, QModelIndex, Signal, QRectF
 
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))

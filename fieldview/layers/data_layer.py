@@ -1,3 +1,5 @@
+from PySide6.QtCore import QRectF
+import numpy as np
 from fieldview.layers.layer import Layer
 from fieldview.core.data_container import DataContainer
 
@@ -13,6 +15,8 @@ class DataLayer(Layer):
         
         # Connect signal
         self._data_container.dataChanged.connect(self.on_data_changed)
+        # Initial update
+        self.on_data_changed()
 
     @property
     def data_container(self):
@@ -46,7 +50,24 @@ class DataLayer(Layer):
         """
         Slot called when DataContainer data changes.
         """
+        self._update_bounding_rect()
         self.update_layer()
+
+    def _update_bounding_rect(self):
+        points = self._data_container.points
+        if len(points) == 0:
+            return
+            
+        min_x = np.min(points[:, 0])
+        max_x = np.max(points[:, 0])
+        min_y = np.min(points[:, 1])
+        max_y = np.max(points[:, 1])
+        
+        # Add padding (e.g., for icons or text)
+        padding = 50
+        rect = QRectF(min_x - padding, min_y - padding, 
+                      max_x - min_x + 2*padding, max_y - min_y + 2*padding)
+        self.set_bounding_rect(rect)
 
     def get_valid_data(self):
         """
