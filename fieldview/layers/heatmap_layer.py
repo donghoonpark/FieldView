@@ -170,14 +170,66 @@ class HeatmapLayer(DataLayer):
             grid_size = self._grid_size
 
         points, values, _ = self.get_valid_data()
-        
+
         if len(points) < 3 or self._boundary_shape.isEmpty():
             self._cached_image = None
             return
 
-        # print(f"Total: {duration_ms:.1f}ms | Boundary: {(t1-t0)*1000:.1f}ms | Interp: {(t3-t2)*1000:.1f}ms | Image: {(t4-t3)*1000:.1f}ms")
-        
+        # 1. Generate Boundary Points (Ghost Points)
+        boundary_points, boundary_values = self._generate_boundary_points(points, values)
+
+        # 2. Combine Data
+        all_points = np.vstack((points, boundary_points))
+        all_values = np.concatenate((values, boundary_values))
+
+        # 3. Create Grid based on Bounding Rect
+        # We expand the grid by 1 unit on all sides to avoid edge artifacts
+        rect = self._boundary_shape.boundingRect()
+
+        # Calculate pixel size
+        dx = rect.width() / grid_size
+        dy = rect.height() / grid_size
+
+        # Expand rect by 1 pixel size on all sides
+        expanded_rect = rect.adjusted(-dx, -dy, dx, dy)
+        self._heatmap_rect = expanded_rect
+
+        # Update grid size to cover the expanded area
+        # We added 2 units of width/height (1 on each side)
+        expanded_grid_size = grid_size + 2
+
+        x = np.linspace(expanded_rect.left(), expanded_rect.right(), expanded_grid_size)
+        y = np.linspace(expanded_rect.top(), expanded_rect.bottom(), expanded_grid_size)
+        X, Y = np.meshgrid(x, y)
+
+        # 4. Interpolate
+        try:
+            if method == 'linear':
+                interp = LinearNDInterpolator(all_points, all_values, fill_value=np.nan)
+                Z = interp(X, Y)
+            else: # rbf
+                grid_points = np.column_stack((X.ravel(), Y.ravel()))
+                interp = RBFInterpolator(all_points, all_values, neighbors=neighbors, kernel='thin_plate_spline')
+                Z_flat = interp(grid_points)
+                Z = Z_flat.reshape(expanded_grid_size, expanded_grid_size)
+        except Exception as e:
+            print(f"Interpolation failed ({method}): {e}")
+            self._cached_image = None
+            return
+
+        # 5. Masking - REMOVED
+        # We rely on QPainter clipping in paint() for precise masking.
+        # This avoids the loop and ensures clean edges.
+
+        # 6. Convert to QImage
+        self._cached_image = self._array_to_qimage(Z)
+
+        end_time = time.perf_counter()
+        duration_ms = (end_time - start_time) * 1000
+
         self.renderingFinished.emit(duration_ms, grid_size)
+
+        # print(f"Total: {duration_ms:.1f}ms | Boundary: {(t1-t0)*1000:.1f}ms | Interp: {(t3-t2)*1000:.1f}ms | Image: {(t4-t3)*1000:.1f}ms")
 
         # 7. Adaptive Quality Adjustment
         if self._target_render_time > 0 and duration_ms > 0:
