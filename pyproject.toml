@@ -1,6 +1,6 @@
 [project]
 name = "fieldview"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python + Qt based 2D data visualization solution for irregular data points"
 readme = "README.md"
 authors = [{name = "FieldView Team", email = "dev@fieldview.org"}]
