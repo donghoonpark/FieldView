@@ -30,6 +30,23 @@ def test_svg_layer_origin(qtbot):
     assert shifted_rect.top() == base_rect.top() - 5
     assert shifted_rect.size() == base_rect.size()
 
+
+def test_svg_layer_origin_absolute(qtbot):
+    layer = SvgLayer()
+
+    base_rect = layer.boundingRect()
+
+    layer.set_origin((5, 5))
+    initial = layer.boundingRect()
+
+    layer.set_origin((12, -3))
+    updated = layer.boundingRect()
+
+    assert initial.left() == base_rect.left() + 5
+    assert updated.left() == base_rect.left() + 12
+    assert updated.top() == base_rect.top() - 3
+    assert updated.size() == base_rect.size()
+
 def test_pin_layer(qtbot):
     dc = DataContainer()
     dc.set_data([[0, 0]], [10])

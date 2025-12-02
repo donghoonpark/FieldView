@@ -26,12 +26,14 @@ class SvgLayer(Layer):
         Sets the drawing origin (top-left corner) for the SVG within the scene.
 
         Args:
-            origin (QPointF | tuple | list): New origin. Tuples/lists are
-                interpreted as (x, y).
+            origin (QPointF | tuple | list): Absolute origin in scene
+                coordinates. Tuples/lists are interpreted as (x, y).
         """
         if isinstance(origin, (tuple, list)) and len(origin) == 2:
             origin = QPointF(float(origin[0]), float(origin[1]))
-        if not isinstance(origin, QPointF):
+        elif isinstance(origin, QPointF):
+            origin = QPointF(origin)  # make a defensive copy
+        else:
             raise TypeError("origin must be a QPointF or a (x, y) tuple/list")
 
         if origin == self._origin:
