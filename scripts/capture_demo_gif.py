@@ -9,6 +9,7 @@ import argparse
 import base64
 import os
 import sys
+from dataclasses import dataclass
 from typing import Callable, Iterable, List, Tuple
 
 # Ensure offscreen rendering before importing Qt
@@ -16,7 +17,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import imageio.v3 as iio
 import numpy as np
-from PySide6.QtCore import QRectF, QSize, Qt
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
@@ -28,7 +29,12 @@ if PROJECT_ROOT not in sys.path:
 
 from examples.demo import DemoApp  # noqa: E402
 
-CaptionedStep = Tuple[str, Callable[[], None] | None]
+
+@dataclass
+class CaptionedStep:
+    caption: str
+    action: Callable[[], None] | None = None
+    delay_ms: int | None = None
 
 
 def _qimage_to_numpy(image: QImage) -> np.ndarray:
@@ -56,34 +62,55 @@ def _render_frame(window: DemoApp, size: QSize, caption: str | None) -> np.ndarr
 
 
 def _default_steps(window: DemoApp) -> List[CaptionedStep]:
-    """Predefined set of actions to showcase key features."""
+    """Predefined walkthrough showcasing the main interactions."""
 
-    def enable_labels_only() -> None:
-        window.value_layer.setVisible(False)
-        window.label_layer.setVisible(True)
-
-    def warm_colormap() -> None:
-        setattr(window.heatmap_layer, "colormap", "magma")
-
-    def offset_floorplan() -> None:
-        window.set_svg_origin(60.0, -40.0)
+    app = QApplication.instance()
 
     def circular_boundary() -> None:
         window.change_boundary_shape("Circle")
 
-    def jitter_values() -> None:
-        window.label_layer.setVisible(False)
-        window.value_layer.setVisible(True)
-        window.spin_noise.setValue(12.0)
-        window.apply_noise()
+    def custom_polygon() -> None:
+        window.change_boundary_shape("Custom Polygon")
+
+    def enable_editing() -> None:
+        window.toggle_polygon_handles(True)
+
+    def add_and_drag_vertex() -> None:
+        insert_after = 1
+        start_pos = QPointF(-40, 260)
+        window.on_polygon_point_added(insert_after, start_pos)
+        if app:
+            app.processEvents()
+        QTest.qWait(1000)
+
+        new_index = insert_after + 1
+        window.on_handle_moved(new_index, QPointF(140, 240))
+        if app:
+            app.processEvents()
+        QTest.qWait(1000)
+
+    def hide_values() -> None:
+        window.value_layer.setVisible(False)
+
+    def show_labels() -> None:
+        window.label_layer.setVisible(True)
+
+    def change_colormap() -> None:
+        setattr(window.heatmap_layer, "colormap", "plasma")
+
+    def start_noise() -> None:
+        window.btn_sim.setChecked(True)
 
     return [
-        ("Initial view", None),
-        ("Labels only for clarity", enable_labels_only),
-        ("Warm colormap", warm_colormap),
-        ("Offset floorplan origin", offset_floorplan),
-        ("Circular boundary", circular_boundary),
-        ("Jittered values", jitter_values),
+        CaptionedStep("Initial view", None, 1000),
+        CaptionedStep("Switch to circular boundary", circular_boundary, 1000),
+        CaptionedStep("Back to custom polygon", custom_polygon, 1000),
+        CaptionedStep("Enable polygon editing", enable_editing, 1000),
+        CaptionedStep("Add and drag a new vertex", add_and_drag_vertex, 0),
+        CaptionedStep("Hide value overlays", hide_values, 1000),
+        CaptionedStep("Show label overlays", show_labels, 1000),
+        CaptionedStep("Change colormap", change_colormap, 1000),
+        CaptionedStep("Start noise simulator", start_noise, 3000),
     ]
 
 
@@ -93,14 +120,14 @@ def generate_demo_gif(
     size: QSize | None = None,
     steps_builder: Callable[[DemoApp], Iterable[CaptionedStep]] | None = None,
     base64_path: str | None = None,
-    step_delay_ms: int = 800,
+    step_delay_ms: int = 1000,
     linger_frames: int = 2,
 ) -> str:
     """Create a GIF that exercises the demo widget.
 
     Args:
         output_path: Where to store the GIF. Defaults to ``assets/demo.gif``.
-        size: Image size to render; defaults to 900x700.
+        size: Image size to render; defaults to 800x680 to keep the demo width fixed.
         steps_builder: Optional factory that receives the live ``DemoApp``
             instance and returns an iterable of ``(caption, action)`` pairs.
         base64_path: Optional path to also emit a Base64-encoded version of the
@@ -112,18 +139,23 @@ def generate_demo_gif(
 
     app = QApplication.instance() or QApplication(sys.argv)
     window = DemoApp()
-    render_size = size or QSize(1400, 900)
+    render_size = size or QSize(800, 680)
     window.resize(render_size)
     window.show()
     steps = list(steps_builder(window) if steps_builder else _default_steps(window))
 
     frames: List[np.ndarray] = []
-    for caption, action in steps:
-        if action:
-            action()
+    for step in steps:
+        if isinstance(step, tuple):
+            step = CaptionedStep(*step)
+
+        if step.action:
+            step.action()
         app.processEvents()
-        QTest.qWait(step_delay_ms)
-        frame = _render_frame(window, render_size, caption)
+        delay = step.delay_ms if step.delay_ms is not None else step_delay_ms
+        if delay > 0:
+            QTest.qWait(delay)
+        frame = _render_frame(window, render_size, step.caption)
         frames.extend([frame] * max(1, linger_frames))
 
     assets_dir = os.path.join(PROJECT_ROOT, "assets")
@@ -157,7 +189,7 @@ def main() -> None:
     parser.add_argument(
         "--step-delay-ms",
         type=int,
-        default=800,
+        default=1000,
         help="How long to pause after each step so changes are visible",
     )
     parser.add_argument(

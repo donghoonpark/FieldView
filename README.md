@@ -114,6 +114,15 @@ QT_QPA_PLATFORM=offscreen uv run python scripts/capture_demo_gif.py --output ass
 #     --step-delay-ms 1200 --linger-frames 3
 ```
 
+The capture script pins the demo window to 800px width and walks through these
+actions with built-in pauses:
+
+1. Pause on the initial state
+2. Switch the heatmap boundary to a circle, then back to a custom polygon
+3. Enable polygon editing, add a new vertex, and drag it to a new position
+4. Toggle off value overlays, toggle on labels, and change the colormap
+5. Start the noise simulator and linger so the animation shows the updates
+
 To preview the existing asset locally without regenerating:
 
 ```bash
