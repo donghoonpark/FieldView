@@ -1,7 +1,6 @@
 import numpy as np
 import time
-from scipy.interpolate import RBFInterpolator, LinearNDInterpolator
-from scipy.spatial import cKDTree
+from fieldview.utils.interpolation import FastRBFInterpolator, BoundaryPointGenerator
 from PySide6.QtGui import QImage, QPainter, QColor, QPolygonF, QPainterPath
 from PySide6.QtCore import Qt, QTimer, QRectF, QPointF, Signal
 
@@ -43,6 +42,15 @@ class HeatmapLayer(DataLayer):
         self._hq_timer.setSingleShot(True)
         self._hq_timer.setInterval(self._hq_delay)
         self._hq_timer.timeout.connect(self._perform_hq_update)
+        
+        # Interpolators
+        self._boundary_gen = BoundaryPointGenerator()
+        self._rbf_interp = FastRBFInterpolator(neighbors=self._neighbors)
+        
+        # Cache Keys
+        self._last_points_hash = None
+        self._last_boundary_hash = None
+        self._last_grid_size = None
         
         # Initial update
         self.on_data_changed()
@@ -162,7 +170,7 @@ class HeatmapLayer(DataLayer):
 
     def _generate_heatmap(self, method='rbf', neighbors=30, grid_size=None):
         """
-        Generates the heatmap image.
+        Generates the heatmap image using cached interpolators.
         """
         start_time = time.perf_counter()
 
@@ -175,53 +183,79 @@ class HeatmapLayer(DataLayer):
             self._cached_image = None
             return
 
-        # 1. Generate Boundary Points (Ghost Points)
-        boundary_points, boundary_values = self._generate_boundary_points(points, values)
+        # Check if geometry changed (Points location or Boundary or Grid Size)
+        # We use a simple hash of points coordinates for check
+        points_hash = hash(points.tobytes())
+        # Boundary hash is tricky, let's use boundingRect for now or just assume it changes less often
+        # Actually, let's just use the point count and first point as a cheap hash for boundary
+        boundary_hash = (self._boundary_shape.count(), self._boundary_shape.at(0).x() if not self._boundary_shape.isEmpty() else 0)
+        
+        geometry_changed = (
+            points_hash != self._last_points_hash or 
+            boundary_hash != self._last_boundary_hash or
+            grid_size != self._last_grid_size
+        )
 
-        # 2. Combine Data
-        all_points = np.vstack((points, boundary_points))
-        all_values = np.concatenate((values, boundary_values))
+        if geometry_changed:
+            # 1. Fit Boundary Generator
+            self._boundary_gen.fit(points, self._boundary_shape)
+            
+            # 2. Get Boundary Points
+            boundary_points = self._boundary_gen.get_boundary_points()
+            
+            # 3. Combine Points for RBF Fit
+            if len(boundary_points) > 0:
+                all_source_points = np.vstack((points, boundary_points))
+            else:
+                all_source_points = points
+                
+            # 4. Create Grid
+            rect = self._boundary_shape.boundingRect()
+            dx = rect.width() / grid_size
+            dy = rect.height() / grid_size
+            expanded_rect = rect.adjusted(-dx, -dy, dx, dy)
+            self._heatmap_rect = expanded_rect
+            expanded_grid_size = grid_size + 2
+            
+            x = np.linspace(expanded_rect.left(), expanded_rect.right(), expanded_grid_size)
+            y = np.linspace(expanded_rect.top(), expanded_rect.bottom(), expanded_grid_size)
+            X, Y = np.meshgrid(x, y)
+            grid_points = np.column_stack((X.ravel(), Y.ravel()))
+            
+            # 5. Fit Fast RBF
+            # Update neighbors if needed
+            self._rbf_interp.neighbors = neighbors
+            self._rbf_interp.fit(all_source_points, grid_points)
+            
+            # Update Cache Keys
+            self._last_points_hash = points_hash
+            self._last_boundary_hash = boundary_hash
+            self._last_grid_size = grid_size
+            
+            # Store grid shape for reshaping later
+            self._last_grid_shape = (expanded_grid_size, expanded_grid_size)
 
-        # 3. Create Grid based on Bounding Rect
-        # We expand the grid by 1 unit on all sides to avoid edge artifacts
-        rect = self._boundary_shape.boundingRect()
-
-        # Calculate pixel size
-        dx = rect.width() / grid_size
-        dy = rect.height() / grid_size
-
-        # Expand rect by 1 pixel size on all sides
-        expanded_rect = rect.adjusted(-dx, -dy, dx, dy)
-        self._heatmap_rect = expanded_rect
-
-        # Update grid size to cover the expanded area
-        # We added 2 units of width/height (1 on each side)
-        expanded_grid_size = grid_size + 2
-
-        x = np.linspace(expanded_rect.left(), expanded_rect.right(), expanded_grid_size)
-        y = np.linspace(expanded_rect.top(), expanded_rect.bottom(), expanded_grid_size)
-        X, Y = np.meshgrid(x, y)
-
-        # 4. Interpolate
-        try:
-            if method == 'linear':
-                interp = LinearNDInterpolator(all_points, all_values, fill_value=np.nan)
-                Z = interp(X, Y)
-            else: # rbf
-                grid_points = np.column_stack((X.ravel(), Y.ravel()))
-                interp = RBFInterpolator(all_points, all_values, neighbors=neighbors, kernel='thin_plate_spline')
-                Z_flat = interp(grid_points)
-                Z = Z_flat.reshape(expanded_grid_size, expanded_grid_size)
-        except Exception as e:
-            print(f"Interpolation failed ({method}): {e}")
+        # --- Fast Update Phase (Values Only) ---
+        
+        # 1. Get Boundary Values
+        boundary_values = self._boundary_gen.transform(values)
+        
+        # 2. Combine Values
+        if len(boundary_values) > 0:
+            all_values = np.concatenate((values, boundary_values))
+        else:
+            all_values = values
+            
+        # 3. Predict
+        Z_flat = self._rbf_interp.predict(all_values)
+        
+        if Z_flat is None:
             self._cached_image = None
             return
+            
+        Z = Z_flat.reshape(self._last_grid_shape)
 
-        # 5. Masking - REMOVED
-        # We rely on QPainter clipping in paint() for precise masking.
-        # This avoids the loop and ensures clean edges.
-
-        # 6. Convert to QImage
+        # 4. Convert to QImage
         self._cached_image = self._array_to_qimage(Z)
 
         end_time = time.perf_counter()
@@ -229,93 +263,17 @@ class HeatmapLayer(DataLayer):
 
         self.renderingFinished.emit(duration_ms, grid_size)
 
-        # print(f"Total: {duration_ms:.1f}ms | Boundary: {(t1-t0)*1000:.1f}ms | Interp: {(t3-t2)*1000:.1f}ms | Image: {(t4-t3)*1000:.1f}ms")
-
-        # 7. Adaptive Quality Adjustment
+        # 5. Adaptive Quality Adjustment
         if self._target_render_time > 0 and duration_ms > 0:
-            # Calculate target grid size
-            # Time is roughly proportional to grid_size^2 (number of evaluation points)
-            # target_time / current_time = target_grid^2 / current_grid^2
-            # target_grid = current_grid * sqrt(target_time / current_time)
-            
             ratio = self._target_render_time / duration_ms
-            # Clamp ratio to prevent wild swings (e.g., 0.5x to 2.0x)
             ratio = max(0.5, min(2.0, ratio))
-            
             new_grid_size = int(grid_size * np.sqrt(ratio))
-            
-            # Clamp grid size
             new_grid_size = max(30, min(500, new_grid_size))
-            
-            # Apply smoothing (EMA)
             alpha = 0.3
             self._grid_size = int(alpha * new_grid_size + (1 - alpha) * self._grid_size)
-            
+            # print(f"Render: {duration_ms:.1f}ms, Target: {self._target_render_time}ms, Ratio {ratio:.2f} New Grid: {self._grid_size}")
 
-            print(f"Render: {duration_ms:.1f}ms, Target: {self._target_render_time}ms, Ratio {ratio:.2f} New Grid: {self._grid_size}")
 
-    def _generate_boundary_points(self, points, values):
-        """
-        Generates ghost points on the boundary using adaptive sampling and IDW.
-        """
-        if len(points) < 2:
-            return np.empty((0, 2)), np.empty((0,))
-
-        # Adaptive Sampling
-        tree = cKDTree(points)
-        distances, _ = tree.query(points, k=2)
-        avg_dist = np.mean(distances[:, 1])
-        target_segment_length = avg_dist * 1.2
-        if target_segment_length <= 0: target_segment_length = 10.0
-        
-        boundary_points_list = []
-        
-        # Iterate through polygon edges
-        poly_points = [self._boundary_shape.at(i) for i in range(self._boundary_shape.count())]
-        if self._boundary_shape.isClosed():
-             # QPolygonF might be closed or not depending on creation. 
-             # If last point != first point, close it effectively for iteration
-             if poly_points[0] != poly_points[-1]:
-                 poly_points.append(poly_points[0])
-        else:
-             poly_points.append(poly_points[0]) # Close the loop
-             
-        for i in range(len(poly_points) - 1):
-            p1 = np.array([poly_points[i].x(), poly_points[i].y()])
-            p2 = np.array([poly_points[i+1].x(), poly_points[i+1].y()])
-            
-            segment_len = np.linalg.norm(p2 - p1)
-            n_segments = int(np.ceil(segment_len / target_segment_length))
-            n_segments = max(1, n_segments)
-            
-            for j in range(n_segments):
-                t = j / n_segments
-                pt = p1 + t * (p2 - p1)
-                boundary_points_list.append(pt)
-                
-        boundary_points = np.array(boundary_points_list)
-        
-        if len(boundary_points) == 0:
-             return np.empty((0, 2)), np.empty((0,))
-
-        # IDW for Values
-        dists, indices = tree.query(boundary_points, k=2)
-        boundary_values = []
-        
-        for i in range(len(boundary_points)):
-            d1, d2 = dists[i]
-            idx1, idx2 = indices[i]
-            v1, v2 = values[idx1], values[idx2]
-            
-            if d1 < 1e-9: val = v1
-            elif d2 < 1e-9: val = v2
-            else:
-                w1 = 1.0 / d1
-                w2 = 1.0 / d2
-                val = (w1 * v1 + w2 * v2) / (w1 + w2)
-            boundary_values.append(val)
-            
-        return boundary_points, np.array(boundary_values)
 
     def _array_to_qimage(self, Z):
         """
