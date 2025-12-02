@@ -55,14 +55,35 @@ def test_collision_avoidance(qtbot):
     metrics = painter.fontMetrics()
     painter.end()
     
-    points, values, labels = layer.get_valid_data()
-    layout = layer._calculate_layout(points, values, labels, metrics)
-    
+    indices, points, values, labels = layer.get_valid_data(return_indices=True)
+    layout = layer._calculate_layout(indices, points, values, labels, metrics)
+
     rect0 = layout[0]
     rect1 = layout[1]
-    
+
     # They should not intersect
     assert not rect0.intersects(rect1)
+
+def test_highlight_indices_respect_exclusions(qtbot):
+    dc = DataContainer()
+    dc.set_data([[0, 0], [10, 0], [20, 0]], [1, 2, 3], ["A", "B", "C"])
+    layer = LabelLayer(dc)
+    layer.set_excluded_indices([1])
+    layer.set_highlighted_indices([2])
+
+    from PySide6.QtGui import QPainter, QImage
+
+    img = QImage(200, 200, QImage.Format.Format_ARGB32)
+    painter = QPainter(img)
+    painter.setFont(layer.font)
+    metrics = painter.fontMetrics()
+    painter.end()
+
+    indices, points, values, labels = layer.get_valid_data(return_indices=True)
+    layout = layer._calculate_layout(indices, points, values, labels, metrics)
+
+    assert set(layout.keys()) == {0, 2}
+    assert 2 in layer.highlighted_indices
 
 def test_font_loading(qtbot):
     dc = DataContainer()

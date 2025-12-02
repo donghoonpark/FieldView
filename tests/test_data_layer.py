@@ -38,6 +38,12 @@ def test_excluded_indices():
     assert labels[0] == "A"
     assert labels[1] == "C"
 
+    indices, points_idx, values_idx, labels_idx = layer.get_valid_data(return_indices=True)
+    assert indices == [0, 2]
+    assert points_idx.shape[0] == 2
+    assert values_idx.tolist() == [10, 30]
+    assert labels_idx == ["A", "C"]
+
 def test_add_remove_excluded_index():
     dc = DataContainer()
     layer = DataLayer(dc)

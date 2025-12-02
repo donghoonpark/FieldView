@@ -69,21 +69,28 @@ class DataLayer(Layer):
                       max_x - min_x + 2*padding, max_y - min_y + 2*padding)
         self.set_bounding_rect(rect)
 
-    def get_valid_data(self):
+    def get_valid_data(self, return_indices=False):
         """
         Returns points, values, and labels excluding the excluded indices.
+
+        If ``return_indices`` is True, also returns the list of original data
+        container indices corresponding to the returned points.
         """
         points = self._data_container.points
         values = self._data_container.values
         labels = self._data_container.labels
-        
+
         if not self._excluded_indices:
+            if return_indices:
+                return list(range(len(points))), points, values, labels
             return points, values, labels
-            
+
         # Create a mask for valid indices
         mask = [i for i in range(len(points)) if i not in self._excluded_indices]
-        
+
         # Filter labels (list)
         valid_labels = [labels[i] for i in mask]
-        
+
+        if return_indices:
+            return mask, points[mask], values[mask], valid_labels
         return points[mask], values[mask], valid_labels

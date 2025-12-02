@@ -76,21 +76,27 @@ class TextLayer(DataLayer):
         super().update_layer()
 
     def paint(self, painter, option, widget):
-        points, values, labels = self.get_valid_data()
-        
+        indices, points, values, labels = self.get_valid_data(return_indices=True)
+        index_data = {idx: (value, label) for idx, value, label in zip(indices, values, labels)}
+
         painter.setFont(self._font)
         metrics = painter.fontMetrics()
-        
+
         if self._cached_layout is None:
-            self._cached_layout = self._calculate_layout(points, values, labels, metrics)
-            
+            self._cached_layout = self._calculate_layout(indices, points, values, labels, metrics)
+
         for i, rect in self._cached_layout.items():
-            text = self._get_text(i, values[i], labels[i])
-            if not text: continue
-            
+            value_label = index_data.get(i)
+            if value_label is None:
+                continue
+            value, label = value_label
+            text = self._get_text(i, value, label)
+            if not text:
+                continue
+
             # Determine background color
             bg_color = self._highlight_color if i in self._highlighted_indices else self._bg_color
-            
+
             # Draw background
             painter.fillRect(rect, bg_color)
             
@@ -98,14 +104,15 @@ class TextLayer(DataLayer):
             painter.setPen(self._text_color if i not in self._highlighted_indices else Qt.GlobalColor.black)
             painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
-    def _calculate_layout(self, points, values, labels, metrics):
+    def _calculate_layout(self, indices, points, values, labels, metrics):
         layout = {} # index -> QRectF
         placed_rects = []
-        
-        for i, (x, y) in enumerate(points):
-            text = self._get_text(i, values[i], labels[i])
-            if not text: continue
-            
+
+        for idx, (x, y), value, label in zip(indices, points, values, labels):
+            text = self._get_text(idx, value, label)
+            if not text:
+                continue
+
             rect = metrics.boundingRect(text)
             # Add padding
             rect.adjust(-2, -2, 2, 2)
@@ -162,9 +169,9 @@ class TextLayer(DataLayer):
                 chosen_rect = QRectF(rect)
                 chosen_rect.moveCenter(QPointF(x, y))
                 
-            layout[i] = chosen_rect
+            layout[idx] = chosen_rect
             placed_rects.append(chosen_rect)
-            
+
         return layout
 
     def _get_text(self, index, value, label):

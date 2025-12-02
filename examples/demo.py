@@ -129,56 +129,77 @@ class PropertyBrowser(QTreeWidget):
 # --- Data Table Model (Reused) ---
 
 class PointTableModel(QAbstractTableModel):
+    indicesChanged = Signal()
+
     def __init__(self, data_container):
         super().__init__()
         self._data_container = data_container
-        self._data_container.dataChanged.connect(self.layoutChanged.emit)
+        self._data_container.dataChanged.connect(self._on_data_changed)
         self._highlighted_indices = set()
+        self._excluded_indices = set()
+
+    def _on_data_changed(self):
+        max_idx = len(self._data_container.points)
+        self._highlighted_indices = {i for i in self._highlighted_indices if i < max_idx}
+        self._excluded_indices = {i for i in self._excluded_indices if i < max_idx}
+        self.layoutChanged.emit()
+        self.indicesChanged.emit()
 
     def rowCount(self, parent=QModelIndex()):
         return len(self._data_container.points)
 
     def columnCount(self, parent=QModelIndex()):
-        return 5 # Highlight, X, Y, Value, Label
+        return 6 # Highlight, Exclude, X, Y, Value, Label
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid(): return None
         row, col = index.row(), index.column()
         
         if role == Qt.ItemDataRole.DisplayRole or role == Qt.ItemDataRole.EditRole:
-            if col == 1: return f"{self._data_container.points[row][0]:.2f}"
-            if col == 2: return f"{self._data_container.points[row][1]:.2f}"
-            if col == 3: return f"{self._data_container.values[row]:.2f}"
-            if col == 4: return self._data_container.labels[row]
-            
-        if role == Qt.ItemDataRole.CheckStateRole and col == 0:
-            return Qt.CheckState.Checked if row in self._highlighted_indices else Qt.CheckState.Unchecked
+            if col == 2: return f"{self._data_container.points[row][0]:.2f}"
+            if col == 3: return f"{self._data_container.points[row][1]:.2f}"
+            if col == 4: return f"{self._data_container.values[row]:.2f}"
+            if col == 5: return self._data_container.labels[row]
+
+        if role == Qt.ItemDataRole.CheckStateRole:
+            if col == 0:
+                return Qt.CheckState.Checked if row in self._highlighted_indices else Qt.CheckState.Unchecked
+            if col == 1:
+                return Qt.CheckState.Checked if row in self._excluded_indices else Qt.CheckState.Unchecked
         return None
 
     def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
         if not index.isValid(): return False
         row, col = index.row(), index.column()
         
-        if role == Qt.ItemDataRole.CheckStateRole and col == 0:
-            if value == Qt.CheckState.Checked.value: self._highlighted_indices.add(row)
-            else: self._highlighted_indices.discard(row)
-            self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
-            return True
-            
+        if role == Qt.ItemDataRole.CheckStateRole:
+            if col == 0:
+                if value == Qt.CheckState.Checked.value: self._highlighted_indices.add(row)
+                else: self._highlighted_indices.discard(row)
+                self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+                self.indicesChanged.emit()
+                return True
+            if col == 1:
+                if value == Qt.CheckState.Checked.value: self._excluded_indices.add(row)
+                else: self._excluded_indices.discard(row)
+                self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+                self.indicesChanged.emit()
+                return True
+
         if role == Qt.ItemDataRole.EditRole:
             try:
-                if col == 1:
+                if col == 2:
                     new_x = float(value)
                     y = self._data_container.points[row][1]
                     self._data_container.update_point(row, point=[new_x, y])
-                elif col == 2:
+                elif col == 3:
                     new_y = float(value)
                     x = self._data_container.points[row][0]
                     self._data_container.update_point(row, point=[x, new_y])
-                elif col == 3:
+                elif col == 4:
                     new_val = float(value)
                     self._data_container.update_point(row, value=new_val)
-                elif col == 4:
+                elif col == 5:
                     self._data_container.update_point(row, label=str(value))
                 return True
             except ValueError: return False
@@ -186,17 +207,20 @@ class PointTableModel(QAbstractTableModel):
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
         if role == Qt.ItemDataRole.DisplayRole and orientation == Qt.Orientation.Horizontal:
-            return ["Highlight", "X", "Y", "Value", "Label"][section]
+            return ["Highlight", "Exclude", "X", "Y", "Value", "Label"][section]
         return None
 
     def flags(self, index):
         flags = super().flags(index)
-        if index.column() == 0: flags |= Qt.ItemFlag.ItemIsUserCheckable
+        if index.column() in (0, 1): flags |= Qt.ItemFlag.ItemIsUserCheckable
         else: flags |= Qt.ItemFlag.ItemIsEditable
         return flags
 
     def get_highlighted_indices(self):
         return list(self._highlighted_indices)
+
+    def get_excluded_indices(self):
+        return list(self._excluded_indices)
 
 # --- Polygon Editor Helpers (Reused) ---
 
@@ -334,12 +358,18 @@ class DemoApp(QMainWindow):
         
         self.table_model = PointTableModel(self.data_container)
         self.table_model.dataChanged.connect(self.on_table_changed)
-        
+        self.table_model.indicesChanged.connect(self.sync_layer_indices_from_table)
+
         self.table_view = QTableView()
         self.table_view.setModel(self.table_model)
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table_view.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         layout_data.addWidget(self.table_view)
+
+        lbl_hint = QLabel("Use Highlight to emphasize values/labels and Exclude to temporarily hide a point from all layers while keeping indices intact.")
+        lbl_hint.setWordWrap(True)
+        lbl_hint.setStyleSheet("color: #cccccc; font-size: 11px;")
+        layout_data.addWidget(lbl_hint)
         
         btn_layout = QHBoxLayout()
         btn_add = QPushButton("Add Random")
@@ -486,11 +516,18 @@ class DemoApp(QMainWindow):
         rows = sorted(set(index.row() for index in self.table_view.selectedIndexes()), reverse=True)
         if rows: self.data_container.remove_points(rows)
 
+    def sync_layer_indices_from_table(self):
+        highlighted = self.table_model.get_highlighted_indices()
+        excluded = self.table_model.get_excluded_indices()
+        self.value_layer.set_highlighted_indices(highlighted)
+        self.label_layer.set_highlighted_indices(highlighted)
+
+        for layer in (self.value_layer, self.label_layer, self.heatmap_layer, self.pin_layer):
+            layer.set_excluded_indices(excluded)
+
     def on_table_changed(self, topLeft, bottomRight, roles):
         if Qt.ItemDataRole.CheckStateRole in roles:
-            indices = self.table_model.get_highlighted_indices()
-            self.value_layer.set_highlighted_indices(indices)
-            self.label_layer.set_highlighted_indices(indices)
+            self.sync_layer_indices_from_table()
 
     def update_heatmap_polygon(self):
         self.heatmap_layer.set_boundary_shape(self.heatmap_polygon)
