@@ -447,11 +447,21 @@ class DemoApp(QMainWindow):
         root = self.props.add_group("SVG Layer")
         self.props.add_bool_property(root, "Visible", self.svg_layer.isVisible(), self.svg_layer.setVisible)
         self.props.add_float_property(root, "Opacity", self.svg_layer.opacity(), self.svg_layer.setOpacity, step=0.05)
+        self.props.add_float_property(root, "Origin X", self.svg_layer.origin.x(),
+                                      lambda x: self.set_svg_origin(x=x), min_val=-1000, max_val=1000, step=1.0, decimals=1)
+        self.props.add_float_property(root, "Origin Y", self.svg_layer.origin.y(),
+                                      lambda y: self.set_svg_origin(y=y), min_val=-1000, max_val=1000, step=1.0, decimals=1)
 
     def set_layer_font_size(self, layer, size):
         font = layer.font
         font.setPixelSize(size)
         layer.font = font
+
+    def set_svg_origin(self, x=None, y=None):
+        origin = self.svg_layer.origin
+        new_x = origin.x() if x is None else x
+        new_y = origin.y() if y is None else y
+        self.svg_layer.set_origin((new_x, new_y))
 
     # --- Logic Methods (Reused) ---
 
