@@ -58,6 +58,6 @@ class SvgLayer(Layer):
             self._renderer.render(painter, self.boundingRect())
 
     def boundingRect(self):
-        rect = super().boundingRect()
+        rect = QRectF(super().boundingRect())
         rect.translate(self._origin)
         return rect
