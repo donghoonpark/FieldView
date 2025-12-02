@@ -291,8 +291,10 @@ class DemoApp(QMainWindow):
         self.polygon_handles = []
         self.polygon_edges = []
         self.heatmap_polygon = QPolygonF([
-            QPointF(-200, -200), QPointF(200, -200),
-            QPointF(200, 200), QPointF(-200, 200)
+            QPointF(-450, -330), QPointF(-300, -330), QPointF(-300, -250),
+            QPointF(-150, -250), QPointF(-150, -300), QPointF(150, -300), 
+            QPointF(150, -250), QPointF(450, -250), QPointF(450, 250), 
+            QPointF(-450, 250)
         ])
         self.update_heatmap_polygon()
         self.toggle_polygon_handles(False) # Hidden by default
@@ -306,7 +308,7 @@ class DemoApp(QMainWindow):
     def setup_layers(self):
         # SVG
         self.svg_layer = SvgLayer()
-        svg_path = os.path.join(os.path.dirname(__file__), 'floorplan.svg')
+        svg_path = os.path.join(os.path.dirname(__file__), 'floorplan_apartment.svg')
         self.svg_layer.load_svg(svg_path)
         self.scene.addItem(self.svg_layer)
         
@@ -503,16 +505,60 @@ class DemoApp(QMainWindow):
         self.pin_layer.set_icon(pixmap)
 
     def generate_data(self):
-        df = generate_dummy_data(n_points=20)
-        points = df[['x', 'y']].values
-        values = df['value'].values
-        labels = [f"P{i}" for i in range(len(points))]
-        self.data_container.set_data(points, values, labels)
+        # Define rooms as rectangles (x1, y1, x2, y2)
+        rooms = [
+            (-450, -250, -150, 250), # Master Bed
+            (-450, -330, -300, -250), # Dress/Bath
+            (-150, -250, 150, 250),  # Living
+            (-150, -300, 150, -250), # Kitchen Nook
+            (150, -250, 300, 0),     # Bed 3
+            (150, 0, 300, 250),      # Bed 2
+            (300, -250, 450, -100),  # Entrance
+            (300, -100, 450, 250)    # Bed 4 / Bath
+        ]
+        
+        points = []
+        values = []
+        labels = []
+        
+        for i in range(20):
+            # Pick a random room
+            room = rooms[np.random.randint(len(rooms))]
+            x1, y1, x2, y2 = room
+            
+            # Random point in room with margin
+            margin = 10
+            x = np.random.uniform(x1 + margin, x2 - margin)
+            y = np.random.uniform(y1 + margin, y2 - margin)
+            
+            points.append([x, y])
+            
+            # Value based on room type
+            if room == rooms[3] or room == rooms[1]: # Kitchen or Bath
+                val = np.random.uniform(25, 35)
+            elif room == rooms[0] or room == rooms[4] or room == rooms[5]: # Bedrooms
+                val = np.random.uniform(18, 22)
+            else:
+                val = np.random.uniform(20, 25)
+            values.append(val)
+            labels.append(f"S{i+1}")
+            
+        self.data_container.set_data(np.array(points), np.array(values), labels)
 
     def add_point(self):
-        x = (np.random.rand() - 0.5) * 300
-        y = (np.random.rand() - 0.5) * 300
-        value = np.random.rand() * 100
+        # Re-use room definitions
+        rooms = [
+            (-450, -250, -150, 250), (-450, -330, -300, -250),
+            (-150, -250, 150, 250), (-150, -300, 150, -250),
+            (150, -250, 300, 0), (150, 0, 300, 250),
+            (300, -250, 450, -100), (300, -100, 450, 250)
+        ]
+        room = rooms[np.random.randint(len(rooms))]
+        x1, y1, x2, y2 = room
+        margin = 10
+        x = np.random.uniform(x1 + margin, x2 - margin)
+        y = np.random.uniform(y1 + margin, y2 - margin)
+        value = np.random.uniform(15, 35)
         self.data_container.add_points([[x, y]], [value], ["New"])
 
     def delete_selected_points(self):

@@ -1,0 +1,105 @@
+<svg width="1000" height="700" viewBox="-500 -350 1000 700" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <rect x="-500" y="-350" width="1000" height="700" fill="#1e1e1e"/>
+    
+    <!-- Grid -->
+    <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#2a2a2a" stroke-width="1"/>
+        </pattern>
+    </defs>
+    <rect x="-500" y="-350" width="1000" height="700" fill="url(#grid)"/>
+
+    <!-- Floor Outline (Fill) -->
+    <path d="
+        M -450 -250 L -150 -250 L -150 -300 L 150 -300 L 150 -250 L 450 -250 
+        L 450 250 L -450 250 Z
+    " fill="#252525" stroke="none"/>
+    
+    <!-- Balcony Floor (Lighter) -->
+    <rect x="-450" y="250" width="900" height="80" fill="#2a2a2a"/>
+    <rect x="-450" y="-330" width="150" height="80" fill="#2a2a2a"/>
+
+    <!-- Walls -->
+    <g stroke="#555" stroke-width="4" fill="none">
+        <!-- Main Outer Walls -->
+        <path d="M -450 -250 L -150 -250 L -150 -300 L 150 -300 L 150 -250 L 450 -250 L 450 250 L -450 250 Z"/>
+        
+        <!-- Balcony Outer Walls -->
+        <path d="M -450 250 L -450 330 L 450 330 L 450 250"/>
+        <path d="M -450 -250 L -450 -330 L -300 -330 L -300 -250"/>
+
+        <!-- Internal Vertical Walls -->
+        <!-- Master / Living Divider -->
+        <path d="M -150 -250 L -150 250"/>
+        <!-- Living / Bed2 Divider -->
+        <path d="M 150 -250 L 150 250"/>
+        <!-- Bed2 / Entrance Divider -->
+        <path d="M 300 -250 L 300 250"/>
+        
+        <!-- Internal Horizontal Walls -->
+        <!-- Master / Dress Divider -->
+        <path d="M -450 -50 L -150 -50"/>
+        <!-- Dress / Bath Divider -->
+        <path d="M -300 -250 L -300 -50"/>
+        
+        <!-- Bed2 / Bed3 Divider -->
+        <path d="M 150 0 L 450 0"/>
+        
+        <!-- Entrance / Bath Divider -->
+        <path d="M 300 -100 L 450 -100"/>
+    </g>
+
+    <!-- Room Labels -->
+    <g font-family="JetBrains Mono, monospace" font-size="14" fill="#888" text-anchor="middle">
+        <text x="-300" y="100">Master Bedroom</text>
+        <text x="-375" y="-150">Dress</text>
+        <text x="-225" y="-150">Bath 1</text>
+        
+        <text x="0" y="0">Living Room</text>
+        <text x="0" y="-200">Kitchen / Dining</text>
+        
+        <text x="225" y="125">Bedroom 2</text>
+        <text x="225" y="-125">Bedroom 3</text>
+        
+        <text x="375" y="-175">Entrance</text>
+        <text x="375" y="-50">Bath 2</text>
+        <text x="375" y="125">Bedroom 4</text>
+        
+        <text x="0" y="300">Balcony</text>
+    </g>
+
+    <!-- Doorways -->
+    <g stroke="#1e1e1e" stroke-width="6" fill="none">
+        <!-- Master to Living -->
+        <path d="M -150 100 L -150 160"/>
+        <!-- Living to Bed 2 -->
+        <path d="M 150 100 L 150 160"/>
+        <!-- Living to Bed 3 -->
+        <path d="M 150 -160 L 150 -100"/>
+        
+        <!-- Master to Dress -->
+        <path d="M -330 -50 L -270 -50"/>
+        <!-- Dress to Bath -->
+        <path d="M -300 -180 L -300 -120"/>
+        
+        <!-- Entrance to Living -->
+        <path d="M 300 -200 L 300 -140"/>
+        
+        <!-- Bed 4 Door -->
+        <path d="M 300 100 L 300 160"/>
+        
+        <!-- Balcony Doors -->
+        <path d="M -330 250 L -270 250"/>
+        <path d="M -30 250 L 30 250"/>
+        <path d="M 270 250 L 330 250"/>
+    </g>
+    
+    <!-- Door Arcs -->
+    <g stroke="#666" stroke-width="1" fill="none" stroke-dasharray="4,4">
+        <path d="M -150 160 A 60 60 0 0 1 -210 100"/>
+        <path d="M 150 160 A 60 60 0 0 0 210 100"/>
+        <path d="M 150 -100 A 60 60 0 0 0 210 -160"/>
+        <path d="M -30 250 A 30 30 0 0 1 0 220"/>
+    </g>
+</svg>
