@@ -76,6 +76,8 @@ def test_demo_gif_generation(tmp_path, qtbot):
         size=QSize(360, 280),
         steps_builder=minimal_steps,
         base64_path=str(base64_output),
+        step_delay_ms=0,
+        linger_frames=1,
     )
 
     assert os.path.exists(path)

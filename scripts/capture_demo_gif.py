@@ -18,6 +18,7 @@ import imageio.v3 as iio
 import numpy as np
 from PySide6.QtCore import QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QImage, QPainter
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
 # Allow importing the demo module
@@ -39,31 +40,26 @@ def _qimage_to_numpy(image: QImage) -> np.ndarray:
 
 
 def _render_frame(window: DemoApp, size: QSize, caption: str | None) -> np.ndarray:
-    """Render the demo scene into an array with an optional caption overlay."""
-    scene = window.scene
-    scene.setSceneRect(scene.itemsBoundingRect())
-
-    window.view.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
-
-    image = QImage(size, QImage.Format.Format_ARGB32)
-    image.fill(QColor(30, 30, 30))
+    """Render the full demo window into an array with an optional caption."""
+    snapshot = window.grab()
+    image = snapshot.toImage().convertToFormat(QImage.Format.Format_ARGB32)
+    image = image.scaled(size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
 
     painter = QPainter(image)
-    scene.render(painter, target=QRectF(0, 0, size.width(), size.height()), source=scene.sceneRect())
-
     if caption:
         painter.setPen(QColor("white"))
-        painter.fillRect(10, 10, 420, 34, QColor(0, 0, 0, 180))
-        painter.drawText(QRectF(16, 10, 400, 34), caption)
-
+        painter.fillRect(10, 10, 480, 38, QColor(0, 0, 0, 180))
+        painter.drawText(QRectF(16, 10, 460, 38), caption)
     painter.end()
+
     return _qimage_to_numpy(image)
 
 
 def _default_steps(window: DemoApp) -> List[CaptionedStep]:
     """Predefined set of actions to showcase key features."""
 
-    def enable_labels() -> None:
+    def enable_labels_only() -> None:
+        window.value_layer.setVisible(False)
         window.label_layer.setVisible(True)
 
     def warm_colormap() -> None:
@@ -76,12 +72,14 @@ def _default_steps(window: DemoApp) -> List[CaptionedStep]:
         window.change_boundary_shape("Circle")
 
     def jitter_values() -> None:
-        window.spin_noise.setValue(15.0)
+        window.label_layer.setVisible(False)
+        window.value_layer.setVisible(True)
+        window.spin_noise.setValue(12.0)
         window.apply_noise()
 
     return [
         ("Initial view", None),
-        ("Labels enabled", enable_labels),
+        ("Labels only for clarity", enable_labels_only),
         ("Warm colormap", warm_colormap),
         ("Offset floorplan origin", offset_floorplan),
         ("Circular boundary", circular_boundary),
@@ -95,6 +93,8 @@ def generate_demo_gif(
     size: QSize | None = None,
     steps_builder: Callable[[DemoApp], Iterable[CaptionedStep]] | None = None,
     base64_path: str | None = None,
+    step_delay_ms: int = 800,
+    linger_frames: int = 2,
 ) -> str:
     """Create a GIF that exercises the demo widget.
 
@@ -112,9 +112,9 @@ def generate_demo_gif(
 
     app = QApplication.instance() or QApplication(sys.argv)
     window = DemoApp()
+    render_size = size or QSize(1400, 900)
+    window.resize(render_size)
     window.show()
-
-    render_size = size or QSize(900, 700)
     steps = list(steps_builder(window) if steps_builder else _default_steps(window))
 
     frames: List[np.ndarray] = []
@@ -122,13 +122,15 @@ def generate_demo_gif(
         if action:
             action()
         app.processEvents()
-        frames.append(_render_frame(window, render_size, caption))
+        QTest.qWait(step_delay_ms)
+        frame = _render_frame(window, render_size, caption)
+        frames.extend([frame] * max(1, linger_frames))
 
     assets_dir = os.path.join(PROJECT_ROOT, "assets")
     os.makedirs(assets_dir, exist_ok=True)
     output_path = output_path or os.path.join(assets_dir, "demo.gif")
 
-    iio.imwrite(output_path, frames, format="GIF", duration=0.8, loop=0)
+    iio.imwrite(output_path, frames, format="GIF", duration=0.85, loop=0)
 
     if base64_path:
         with open(output_path, "rb") as fp:
@@ -152,9 +154,26 @@ def main() -> None:
         dest="base64_path",
         help="Optional path for a Base64-encoded copy of the GIF",
     )
+    parser.add_argument(
+        "--step-delay-ms",
+        type=int,
+        default=800,
+        help="How long to pause after each step so changes are visible",
+    )
+    parser.add_argument(
+        "--linger-frames",
+        type=int,
+        default=2,
+        help="How many repeated frames to emit per step to slow playback",
+    )
     args = parser.parse_args()
 
-    path = generate_demo_gif(output_path=args.output_path, base64_path=args.base64_path)
+    path = generate_demo_gif(
+        output_path=args.output_path,
+        base64_path=args.base64_path,
+        step_delay_ms=args.step_delay_ms,
+        linger_frames=args.linger_frames,
+    )
 
     print(f"Demo GIF saved to: {path}")
     if args.base64_path:

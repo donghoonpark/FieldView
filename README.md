@@ -107,6 +107,11 @@ binary uploads. Regenerate the GIF and matching Base64 using:
 
 ```bash
 QT_QPA_PLATFORM=offscreen uv run python scripts/capture_demo_gif.py --output assets/demo.gif --base64 assets/demo.gif.b64
+
+# Slow things down further if needed
+# QT_QPA_PLATFORM=offscreen uv run python scripts/capture_demo_gif.py \
+#     --output assets/demo.gif --base64 assets/demo.gif.b64 \
+#     --step-delay-ms 1200 --linger-frames 3
 ```
 
 To preview the existing asset locally without regenerating:
