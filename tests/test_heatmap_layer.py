@@ -8,10 +8,10 @@ from fieldview.layers.heatmap_layer import HeatmapLayer
 def test_heatmap_initialization(qtbot):
     dc = DataContainer()
     layer = HeatmapLayer(dc)
-    # Default shape is a square 300x300 centered at 0
+    # Default shape is empty until data is set or manually defined
     rect = layer.boundingRect()
-    assert rect.width() == 300
-    assert rect.height() == 300
+    assert rect.width() == 0
+    assert rect.height() == 0
 
 def test_heatmap_update(qtbot):
     dc = DataContainer()
@@ -31,30 +31,9 @@ def test_heatmap_update(qtbot):
     qtbot.wait(400) # Wait > 300ms
     assert layer._cached_image is not None
 
-def test_boundary_points_generation():
-    dc = DataContainer()
-    layer = HeatmapLayer(dc)
-    
-    # Set a simple square polygon
-    polygon = QPolygonF([
-        QPointF(0, 0), QPointF(100, 0),
-        QPointF(100, 100), QPointF(0, 100)
-    ])
-    layer.set_boundary_shape(polygon)
-    
-    points = np.array([[10, 10], [90, 90]])
-    values = np.array([0, 10])
-    
-    b_points, b_values = layer._generate_boundary_points(points, values)
-    
-    assert len(b_points) > 0
-    assert len(b_values) == len(b_points)
-    
-    # Check if boundary points are on the polygon perimeter
-    # Simple check: x is 0 or 100, or y is 0 or 100
-    on_boundary = np.isclose(b_points[:, 0], 0) | np.isclose(b_points[:, 0], 100) | \
-                  np.isclose(b_points[:, 1], 0) | np.isclose(b_points[:, 1], 100)
-    assert np.all(on_boundary)
+    # _generate_boundary_points was removed and refactored into BoundaryPointGenerator
+    # This logic is now tested in test_interpolation.py or implicitly via rendering
+    pass
 
 def test_not_enough_points(qtbot):
     dc = DataContainer()
