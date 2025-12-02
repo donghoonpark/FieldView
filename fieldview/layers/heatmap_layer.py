@@ -1,12 +1,15 @@
 import numpy as np
 import time
-from fieldview.utils.interpolation import FastRBFInterpolator, BoundaryPointGenerator
+from fieldview.utils.grid_manager import InterpolatorCache
 from PySide6.QtGui import QImage, QPainter, QColor, QPolygonF, QPainterPath
 from PySide6.QtCore import Qt, QTimer, QRectF, QPointF, Signal
 
 from fieldview.layers.data_layer import DataLayer
 
 from fieldview.rendering.colormaps import get_colormap
+
+# Tiered grid sizes to prevent cache thrashing
+TIERS = [50, 100, 150, 200, 250, 300, 400, 500]
 
 class HeatmapLayer(DataLayer):
     """
@@ -23,7 +26,9 @@ class HeatmapLayer(DataLayer):
         # Configuration
         self._boundary_shape = QPolygonF() # Default empty
         self._auto_boundary = True # Default to auto-fit data
-        self._grid_size = 50 # Start low for fast initial render
+        self._preview_grid_size = 50 # Fast update size
+        self._idle_grid_size = 150 # HQ update size
+        self._is_adaptive = False
         self._neighbors = 30
         self._target_render_time = 100 # Default High (100ms)
         self._hq_delay = 300 # ms
@@ -44,13 +49,10 @@ class HeatmapLayer(DataLayer):
         self._hq_timer.timeout.connect(self._perform_hq_update)
         
         # Interpolators
-        self._boundary_gen = BoundaryPointGenerator()
-        self._rbf_interp = FastRBFInterpolator(neighbors=self._neighbors)
+        self._interpolator_cache = InterpolatorCache()
         
         # Cache Keys
-        self._last_points_hash = None
-        self._last_boundary_hash = None
-        self._last_grid_size = None
+        self._last_grid_shape = None
         
         # Initial update
         self.on_data_changed()
@@ -76,24 +78,47 @@ class HeatmapLayer(DataLayer):
 
     @property
     def quality(self):
-        # Backward compatibility / UI helper
-        if self._target_render_time <= 20: return 'low'
-        if self._target_render_time <= 50: return 'medium'
-        return 'high'
+        if self._is_adaptive: return 'adaptive'
+        if self._idle_grid_size <= 50: return 'very low'
+        if self._idle_grid_size <= 100: return 'low'
+        if self._idle_grid_size <= 150: return 'medium'
+        if self._idle_grid_size <= 300: return 'high'
+        return 'very high'
 
     @quality.setter
     def quality(self, value):
         if isinstance(value, str):
             value = value.lower()
         
-        if value in ['low', 0]:
-            self.target_render_time = 20
+        if value == 'very low':
+            self._is_adaptive = False
+            self._preview_grid_size = 30
+            self._idle_grid_size = 50
+        elif value in ['low', 0]:
+            self._is_adaptive = False
+            self._preview_grid_size = 50
+            self._idle_grid_size = 100
         elif value in ['medium', 1]:
-            self.target_render_time = 50
+            self._is_adaptive = False
+            self._preview_grid_size = 75
+            self._idle_grid_size = 150
         elif value in ['high', 2]:
-            self.target_render_time = 100
+            self._is_adaptive = False
+            self._preview_grid_size = 100
+            self._idle_grid_size = 300
+        elif value == 'very high':
+            self._is_adaptive = False
+            self._preview_grid_size = 150
+            self._idle_grid_size = 500
+        elif value == 'adaptive':
+            self._is_adaptive = True
+            # Start with Medium
+            self._preview_grid_size = 75
+            self._idle_grid_size = 150
         else:
             print(f"Warning: Invalid quality '{value}'. Ignoring.")
+        
+        self.on_data_changed()
 
     def set_boundary_shape(self, shape):
         """
@@ -121,7 +146,7 @@ class HeatmapLayer(DataLayer):
         Override to trigger fast update and schedule HQ update.
         """
         # Check if initialized
-        if not hasattr(self, '_grid_size'):
+        if not hasattr(self, '_idle_grid_size'):
             return
 
         # Auto-boundary logic
@@ -153,8 +178,8 @@ class HeatmapLayer(DataLayer):
         
         # 2. Perform Fast Update (Low-Res RBF)
         # Use 1/10th of the grid size for speed (e.g., 30x30 instead of 300x300)
-        low_res_size = max(10, int(self._grid_size / 1.6))
-        self._generate_heatmap(method='rbf', neighbors=self._neighbors, grid_size=low_res_size)
+        # 2. Perform Fast Update (Preview Quality)
+        self._generate_heatmap(method='rbf', neighbors=self._neighbors, grid_size=self._preview_grid_size)
         self.update()
         
         # 3. Schedule High Quality Update
@@ -165,7 +190,7 @@ class HeatmapLayer(DataLayer):
         """
         Slot for HQ timer timeout. Performs RBF interpolation.
         """
-        self._generate_heatmap(method='rbf', neighbors=self._neighbors, grid_size=self._grid_size)
+        self._generate_heatmap(method='rbf', neighbors=self._neighbors, grid_size=self._idle_grid_size)
         self.update()
 
     def _generate_heatmap(self, method='rbf', neighbors=30, grid_size=None):
@@ -175,7 +200,7 @@ class HeatmapLayer(DataLayer):
         start_time = time.perf_counter()
 
         if grid_size is None:
-            grid_size = self._grid_size
+            grid_size = self._idle_grid_size
 
         points, values, _ = self.get_valid_data()
 
@@ -183,62 +208,30 @@ class HeatmapLayer(DataLayer):
             self._cached_image = None
             return
 
-        # Check if geometry changed (Points location or Boundary or Grid Size)
-        # We use a simple hash of points coordinates for check
-        points_hash = hash(points.tobytes())
-        # Boundary hash is tricky, let's use boundingRect for now or just assume it changes less often
-        # Actually, let's just use the point count and first point as a cheap hash for boundary
-        boundary_hash = (self._boundary_shape.count(), self._boundary_shape.at(0).x() if not self._boundary_shape.isEmpty() else 0)
-        
-        geometry_changed = (
-            points_hash != self._last_points_hash or 
-            boundary_hash != self._last_boundary_hash or
-            grid_size != self._last_grid_size
+        # Get Interpolator from Cache
+        # This handles geometry checks and fitting internally
+        rbf_interp, boundary_gen = self._interpolator_cache.get_interpolator(
+            grid_size, points, self._boundary_shape, neighbors
         )
-
-        if geometry_changed:
-            # 1. Fit Boundary Generator
-            self._boundary_gen.fit(points, self._boundary_shape)
-            
-            # 2. Get Boundary Points
-            boundary_points = self._boundary_gen.get_boundary_points()
-            
-            # 3. Combine Points for RBF Fit
-            if len(boundary_points) > 0:
-                all_source_points = np.vstack((points, boundary_points))
-            else:
-                all_source_points = points
-                
-            # 4. Create Grid
-            rect = self._boundary_shape.boundingRect()
-            dx = rect.width() / grid_size
-            dy = rect.height() / grid_size
-            expanded_rect = rect.adjusted(-dx, -dy, dx, dy)
-            self._heatmap_rect = expanded_rect
-            expanded_grid_size = grid_size + 2
-            
-            x = np.linspace(expanded_rect.left(), expanded_rect.right(), expanded_grid_size)
-            y = np.linspace(expanded_rect.top(), expanded_rect.bottom(), expanded_grid_size)
-            X, Y = np.meshgrid(x, y)
-            grid_points = np.column_stack((X.ravel(), Y.ravel()))
-            
-            # 5. Fit Fast RBF
-            # Update neighbors if needed
-            self._rbf_interp.neighbors = neighbors
-            self._rbf_interp.fit(all_source_points, grid_points)
-            
-            # Update Cache Keys
-            self._last_points_hash = points_hash
-            self._last_boundary_hash = boundary_hash
-            self._last_grid_size = grid_size
-            
-            # Store grid shape for reshaping later
-            self._last_grid_shape = (expanded_grid_size, expanded_grid_size)
+        
+        # We need to reconstruct the expanded grid size for reshaping
+        # This logic must match what's inside InterpolatorCache
+        # Ideally InterpolatorCache should return this info, but for now we re-calculate
+        # or we can store it in the interpolator object if we modify it.
+        # Let's re-calculate for safety as it's cheap.
+        expanded_grid_size = grid_size + 2
+        self._last_grid_shape = (expanded_grid_size, expanded_grid_size)
+        
+        # Also need to update self._heatmap_rect for drawing
+        rect = self._boundary_shape.boundingRect()
+        dx = rect.width() / grid_size
+        dy = rect.height() / grid_size
+        self._heatmap_rect = rect.adjusted(-dx, -dy, dx, dy)
 
         # --- Fast Update Phase (Values Only) ---
         
         # 1. Get Boundary Values
-        boundary_values = self._boundary_gen.transform(values)
+        boundary_values = boundary_gen.transform(values)
         
         # 2. Combine Values
         if len(boundary_values) > 0:
@@ -247,7 +240,7 @@ class HeatmapLayer(DataLayer):
             all_values = values
             
         # 3. Predict
-        Z_flat = self._rbf_interp.predict(all_values)
+        Z_flat = rbf_interp.predict(all_values)
         
         if Z_flat is None:
             self._cached_image = None
@@ -264,14 +257,50 @@ class HeatmapLayer(DataLayer):
         self.renderingFinished.emit(duration_ms, grid_size)
 
         # 5. Adaptive Quality Adjustment
-        if self._target_render_time > 0 and duration_ms > 0:
+        if self._is_adaptive and grid_size == self._idle_grid_size and self._target_render_time > 0 and duration_ms > 0:
+            # Calculate ideal grid size based on target time
+            # time ~ grid^2  =>  grid ~ sqrt(time)
             ratio = self._target_render_time / duration_ms
-            ratio = max(0.5, min(2.0, ratio))
-            new_grid_size = int(grid_size * np.sqrt(ratio))
-            new_grid_size = max(30, min(500, new_grid_size))
-            alpha = 0.3
-            self._grid_size = int(alpha * new_grid_size + (1 - alpha) * self._grid_size)
-            # print(f"Render: {duration_ms:.1f}ms, Target: {self._target_render_time}ms, Ratio {ratio:.2f} New Grid: {self._grid_size}")
+            ideal_grid = int(self._idle_grid_size * np.sqrt(ratio))
+            
+            # Find closest tier
+            # We prefer a tier that is slightly lower or equal to ideal to be safe on performance
+            # or just closest. Let's pick closest tier <= ideal_grid to ensure we meet target time.
+            
+            # Find closest tier index
+            current_tier_idx = 0
+            try:
+                current_tier_idx = TIERS.index(self._idle_grid_size)
+            except ValueError:
+                # If current size is not in tiers, find closest
+                current_tier_idx = min(range(len(TIERS)), key=lambda i: abs(TIERS[i] - self._idle_grid_size))
+
+            target_tier_idx = 0
+            for i, tier in enumerate(TIERS):
+                if tier <= ideal_grid:
+                    target_tier_idx = i
+                else:
+                    break
+            
+            # Constrain to max 1 step change
+            if target_tier_idx > current_tier_idx:
+                target_tier_idx = current_tier_idx + 1
+            elif target_tier_idx < current_tier_idx:
+                target_tier_idx = current_tier_idx - 1
+            
+            # Clamp index
+            target_tier_idx = max(0, min(len(TIERS) - 1, target_tier_idx))
+            
+            new_tier = TIERS[target_tier_idx]
+            
+            # Only update if changed
+            if new_tier != self._idle_grid_size:
+                self._idle_grid_size = new_tier
+                
+                # Update preview size (approx 1/3 of idle, min 30)
+                self._preview_grid_size = max(30, int(self._idle_grid_size / 3))
+                
+                print(f"[Adaptive] Render: {duration_ms:.1f}ms, Target: {self._target_render_time}ms -> New Idle: {self._idle_grid_size}, Preview: {self._preview_grid_size}")
 
 
 

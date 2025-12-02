@@ -431,7 +431,7 @@ class DemoApp(QMainWindow):
                                      lambda n: setattr(self.heatmap_layer, 'colormap', n))
         
         # Quality now maps to target render time
-        self.props.add_enum_property(root, "Quality", self.heatmap_layer.quality.capitalize(), ["Low", "Medium", "High"], 
+        self.props.add_enum_property(root, "Quality", self.heatmap_layer.quality.title(), ["Very Low", "Low", "Medium", "High", "Very High", "Adaptive"], 
                                      lambda q: setattr(self.heatmap_layer, 'quality', q))
         
         self.props.add_enum_property(root, "Boundary Shape", "Custom Polygon", ["Custom Polygon", "Rectangle", "Circle"], 
