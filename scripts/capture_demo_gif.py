@@ -9,7 +9,9 @@ import argparse
 import base64
 import os
 import sys
+import time
 from dataclasses import dataclass
+from threading import Event, Lock, Thread
 from typing import Callable, Iterable, List, Tuple
 
 # Ensure offscreen rendering before importing Qt
@@ -17,7 +19,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import imageio.v3 as iio
 import numpy as np
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt
+from PySide6.QtCore import QObject, QMetaObject, QPointF, QRectF, QSize, Qt, Slot
 from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
@@ -59,6 +61,73 @@ def _render_frame(window: DemoApp, size: QSize, caption: str | None) -> np.ndarr
     painter.end()
 
     return _qimage_to_numpy(image)
+
+
+class FrameGrabber(QObject):
+    def __init__(
+        self,
+        window: DemoApp,
+        size: QSize,
+        caption_provider: Callable[[], str | None],
+        frames: list[np.ndarray],
+        lock: Lock,
+    ) -> None:
+        super().__init__()
+        self.window = window
+        self.size = size
+        self.caption_provider = caption_provider
+        self.frames = frames
+        self._lock = lock
+
+    @Slot()
+    def capture(self) -> None:
+        frame = _render_frame(self.window, self.size, self.caption_provider())
+        with self._lock:
+            self.frames.append(frame)
+
+
+class FrameRecorder:
+    """Continuously grab frames on a background thread."""
+
+    def __init__(
+        self,
+        window: DemoApp,
+        size: QSize,
+        caption_provider: Callable[[], str | None],
+        *,
+        interval_ms: int,
+    ) -> None:
+        self.interval_ms = max(1, interval_ms)
+        self.frames: list[np.ndarray] = []
+        self._stop = Event()
+        self._lock = Lock()
+        self._thread: Thread | None = None
+        self.grabber = FrameGrabber(
+            window, size, caption_provider, self.frames, self._lock
+        )
+
+    def start(self) -> None:
+        if self._thread:
+            return
+        self._thread = Thread(target=self._record, name="FrameRecorder", daemon=True)
+        self._thread.start()
+
+    def _record(self) -> None:
+        while not self._stop.is_set():
+            QMetaObject.invokeMethod(
+                self.grabber,
+                "capture",
+                Qt.ConnectionType.QueuedConnection,
+            )
+            time.sleep(self.interval_ms / 1000)
+
+    def stop(self) -> List[np.ndarray]:
+        if not self._thread:
+            return []
+        self._stop.set()
+        self._thread.join()
+        with self._lock:
+            return list(self.frames)
 
 
 def _default_steps(window: DemoApp) -> List[CaptionedStep]:
@@ -122,6 +191,7 @@ def generate_demo_gif(
     base64_path: str | None = None,
     step_delay_ms: int = 1000,
     linger_frames: int = 2,
+    capture_interval_ms: int = 200,
 ) -> str:
     """Create a GIF that exercises the demo widget.
 
@@ -132,6 +202,12 @@ def generate_demo_gif(
             instance and returns an iterable of ``(caption, action)`` pairs.
         base64_path: Optional path to also emit a Base64-encoded version of the
             GIF for environments that block binary uploads.
+        step_delay_ms: Default delay after each step if not specified on the
+            step itself.
+        linger_frames: Extra capture time per step, expressed as multiples of
+            ``capture_interval_ms``.
+        capture_interval_ms: How frequently to grab frames on the background
+            recorder thread.
 
     Returns:
         The absolute path to the generated GIF.
@@ -142,21 +218,40 @@ def generate_demo_gif(
     render_size = size or QSize(800, 680)
     window.resize(render_size)
     window.show()
-    steps = list(steps_builder(window) if steps_builder else _default_steps(window))
+    raw_steps = list(steps_builder(window) if steps_builder else _default_steps(window))
+    steps: list[CaptionedStep] = [
+        step if isinstance(step, CaptionedStep) else CaptionedStep(*step)
+        for step in raw_steps
+    ]
 
-    frames: List[np.ndarray] = []
+    caption = steps[0].caption if steps else "Demo"
+
+    recorder = FrameRecorder(
+        window,
+        render_size,
+        lambda: caption,
+        interval_ms=capture_interval_ms,
+    )
+    recorder.start()
+    QTest.qWait(capture_interval_ms)
+
     for step in steps:
-        if isinstance(step, tuple):
-            step = CaptionedStep(*step)
+        caption = step.caption
 
         if step.action:
             step.action()
         app.processEvents()
         delay = step.delay_ms if step.delay_ms is not None else step_delay_ms
-        if delay > 0:
-            QTest.qWait(delay)
-        frame = _render_frame(window, render_size, step.caption)
-        frames.extend([frame] * max(1, linger_frames))
+        linger_ms = max(0, linger_frames - 1) * capture_interval_ms
+        total_wait = max(0, delay) + linger_ms
+        if total_wait:
+            QTest.qWait(total_wait)
+
+    QTest.qWait(capture_interval_ms)
+
+    frames = recorder.stop()
+    if not frames:
+        frames = [_render_frame(window, render_size, caption)]
 
     assets_dir = os.path.join(PROJECT_ROOT, "assets")
     os.makedirs(assets_dir, exist_ok=True)
@@ -196,7 +291,13 @@ def main() -> None:
         "--linger-frames",
         type=int,
         default=2,
-        help="How many repeated frames to emit per step to slow playback",
+        help="How many capture intervals to linger after each step",
+    )
+    parser.add_argument(
+        "--capture-interval-ms",
+        type=int,
+        default=200,
+        help="How frequently to grab frames on the recorder thread",
     )
     args = parser.parse_args()
 
@@ -205,6 +306,7 @@ def main() -> None:
         base64_path=args.base64_path,
         step_delay_ms=args.step_delay_ms,
         linger_frames=args.linger_frames,
+        capture_interval_ms=args.capture_interval_ms,
     )
 
     print(f"Demo GIF saved to: {path}")

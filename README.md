@@ -111,11 +111,12 @@ QT_QPA_PLATFORM=offscreen uv run python scripts/capture_demo_gif.py --output ass
 # Slow things down further if needed
 # QT_QPA_PLATFORM=offscreen uv run python scripts/capture_demo_gif.py \
 #     --output assets/demo.gif --base64 assets/demo.gif.b64 \
-#     --step-delay-ms 1200 --linger-frames 3
+#     --step-delay-ms 1200 --linger-frames 3 --capture-interval-ms 150
 ```
 
-The capture script pins the demo window to 800px width and walks through these
-actions with built-in pauses:
+The capture script pins the demo window to 800px width and continuously records
+frames in the background while walking through these actions with built-in
+pauses:
 
 1. Pause on the initial state
 2. Switch the heatmap boundary to a circle, then back to a custom polygon
