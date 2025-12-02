@@ -2,7 +2,7 @@
 
 **FieldView** is a high-performance Python + Qt (PySide6) library for 2D data visualization, specifically designed for handling irregular data points. It provides a robust rendering engine for heatmaps, markers, and text labels with minimal external dependencies.
 
-<img src="assets/quick_start.png" alt="Quick Start" width="480">
+<img src="assets/quick_start.png" alt="Quick Start" width="600">
 
 ## Key Features
 
@@ -33,7 +33,8 @@ import sys
 import os
 import numpy as np
 from PySide6.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
-from PySide6.QtCore import Qt
+from PySide6.QtGui import QPolygonF
+from PySide6.QtCore import Qt, QPointF
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.heatmap_layer import HeatmapLayer
 from fieldview.layers.text_layer import ValueLayer
@@ -45,17 +46,36 @@ app = QApplication(sys.argv)
 # 1. Setup Data
 data = DataContainer()
 np.random.seed(44)
-points = (np.random.rand(20, 2) - 0.5) * 300
-values = np.random.rand(20) * 100
-data.set_data(points, values)
+
+# Define rooms (x1, y1, x2, y2)
+rooms = [
+    (-450, -250, -150, 250), # Master Bed
+    (-150, -250, 150, 250),  # Living
+    (150, 0, 300, 250),      # Bed 2
+    (300, -100, 450, 250)    # Bed 4
+]
+
+points = []
+values = []
+
+for i in range(20):
+    room = rooms[np.random.randint(len(rooms))]
+    x1, y1, x2, y2 = room
+    margin = 20
+    x = np.random.uniform(x1 + margin, x2 - margin)
+    y = np.random.uniform(y1 + margin, y2 - margin)
+    points.append([x, y])
+    values.append(np.random.rand() * 100)
+    
+data.set_data(np.array(points), np.array(values))
 
 # 2. Create Scene & Layers
 scene = QGraphicsScene()
 
 # SVG Layer (Background)
-# Assuming floorplan.svg exists in current dir or provide path
+# Assuming floorplan_apartment.svg exists in current dir or provide path
 svg_layer = SvgLayer()
-svg_layer.load_svg("examples/floorplan.svg")
+svg_layer.load_svg("examples/floorplan_apartment.svg")
 svg_layer.setZValue(0)
 scene.addItem(svg_layer)
 
@@ -63,7 +83,16 @@ scene.addItem(svg_layer)
 heatmap = HeatmapLayer(data)
 heatmap.setOpacity(0.6)
 heatmap.setZValue(1)
-heatmap.set_boundary_shape(svg_layer._bounding_rect)
+
+# Define custom boundary polygon for the apartment
+polygon = QPolygonF([
+    QPointF(-450, -330), QPointF(-300, -330), QPointF(-300, -250),
+    QPointF(-150, -250), QPointF(-150, -300), QPointF(150, -300), 
+    QPointF(150, -250), QPointF(450, -250), QPointF(450, 250), 
+    QPointF(-450, 250)
+])
+heatmap.set_boundary_shape(polygon)
+
 scene.addItem(heatmap)
 
 # Pin Layer

@@ -27,7 +27,7 @@ def capture():
         print("Rendering scene...")
         
         # Create an image to render into
-        image = QImage(600, 600, QImage.Format.Format_ARGB32)
+        image = QImage(600, 450, QImage.Format.Format_ARGB32)
         image.fill(QColor(30, 30, 30)) # Dark background
         
         painter = QPainter(image)
@@ -35,7 +35,7 @@ def capture():
         
         # Render the scene
         # We use the scene rect which was set in quick_start.py
-        scene.render(painter, target=QRectF(0, 0, 600, 600), source=scene.sceneRect())
+        scene.render(painter, target=QRectF(0, 0, 600, 450), source=scene.sceneRect())
         
         painter.end()
         
