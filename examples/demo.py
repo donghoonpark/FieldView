@@ -447,11 +447,36 @@ class DemoApp(QMainWindow):
         root = self.props.add_group("SVG Layer")
         self.props.add_bool_property(root, "Visible", self.svg_layer.isVisible(), self.svg_layer.setVisible)
         self.props.add_float_property(root, "Opacity", self.svg_layer.opacity(), self.svg_layer.setOpacity, step=0.05)
+        origin = self.svg_layer.origin
+        self.props.add_float_property(
+            root,
+            "Origin X",
+            origin.x(),
+            lambda x: self.set_svg_origin(x, self.svg_layer.origin.y()),
+            min_val=-1000.0,
+            max_val=1000.0,
+            step=5.0,
+            decimals=1,
+        )
+        self.props.add_float_property(
+            root,
+            "Origin Y",
+            origin.y(),
+            lambda y: self.set_svg_origin(self.svg_layer.origin.x(), y),
+            min_val=-1000.0,
+            max_val=1000.0,
+            step=5.0,
+            decimals=1,
+        )
 
     def set_layer_font_size(self, layer, size):
         font = layer.font
         font.setPixelSize(size)
         layer.font = font
+
+    def set_svg_origin(self, x, y):
+        self.svg_layer.set_origin(QPointF(x, y))
+        self.heatmap_layer.set_boundary_shape(self.svg_layer.boundingRect())
 
     # --- Logic Methods (Reused) ---
 

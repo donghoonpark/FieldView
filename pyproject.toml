@@ -9,6 +9,7 @@ dependencies = [
     "numpy>=1.24.1",
     "pyside6>=6.6.0",
     "scipy>=1.10.0",
+    "imageio>=2.36.0",
 ]
 
 [build-system]

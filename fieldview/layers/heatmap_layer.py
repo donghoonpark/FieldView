@@ -131,13 +131,14 @@ class HeatmapLayer(DataLayer):
                 padding_x = max(10, width * 0.1)
                 padding_y = max(10, height * 0.1)
                 
-                rect = QRectF(min_x - padding_x, min_y - padding_y, 
+                rect = QRectF(min_x - padding_x, min_y - padding_y,
                               width + 2*padding_x, height + 2*padding_y)
                 self._boundary_shape = QPolygonF(rect)
                 self.set_bounding_rect(rect)
             else:
-                self._boundary_shape = QPolygonF()
-                self.set_bounding_rect(QRectF())
+                default_rect = QRectF(-150, -150, 300, 300)
+                self._boundary_shape = QPolygonF(default_rect)
+                self.set_bounding_rect(default_rect)
 
         # 1. Cancel any pending HQ update
         if hasattr(self, '_hq_timer'):

@@ -102,7 +102,26 @@ cd fieldview
 uv run examples/demo.py
 ```
 
-<img src="assets/demo.gif" alt="Demo" width="800">
+The demo animation is stored as Base64 text at ``assets/demo.gif.b64`` to avoid
+binary uploads. Regenerate the GIF and matching Base64 using:
+
+```bash
+QT_QPA_PLATFORM=offscreen uv run python scripts/capture_demo_gif.py --output assets/demo.gif --base64 assets/demo.gif.b64
+```
+
+To preview the existing asset locally without regenerating:
+
+```bash
+python - <<'PY'
+import base64, pathlib
+payload = pathlib.Path("assets/demo.gif.b64").read_text()
+path = pathlib.Path("assets/demo.gif")
+path.write_bytes(base64.b64decode(payload))
+print(f"Wrote {path}")
+PY
+```
+
+After decoding, open ``assets/demo.gif`` in any image viewer.
 
 ## License
 
