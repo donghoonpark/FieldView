@@ -1,7 +1,7 @@
 import pytest
 import os
 from PySide6.QtGui import QPixmap
-from PySide6.QtCore import QByteArray
+from PySide6.QtCore import QByteArray, QPointF
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.svg_layer import SvgLayer
 from fieldview.layers.pin_layer import PinLayer
@@ -16,6 +16,36 @@ def test_svg_layer(qtbot, tmp_path):
     
     layer.load_svg(str(svg_file))
     assert layer._renderer.isValid()
+
+
+def test_svg_layer_origin(qtbot):
+    layer = SvgLayer()
+
+    base_rect = layer.boundingRect()
+    layer.set_origin((10, -5))
+
+    shifted_rect = layer.boundingRect()
+
+    assert shifted_rect.left() == base_rect.left() + 10
+    assert shifted_rect.top() == base_rect.top() - 5
+    assert shifted_rect.size() == base_rect.size()
+
+
+def test_svg_layer_origin_absolute(qtbot):
+    layer = SvgLayer()
+
+    base_rect = layer.boundingRect()
+
+    layer.set_origin((5, 5))
+    initial = layer.boundingRect()
+
+    layer.set_origin((12, -3))
+    updated = layer.boundingRect()
+
+    assert initial.left() == base_rect.left() + 5
+    assert updated.left() == base_rect.left() + 12
+    assert updated.top() == base_rect.top() - 3
+    assert updated.size() == base_rect.size()
 
 def test_pin_layer(qtbot):
     dc = DataContainer()

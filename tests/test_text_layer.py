@@ -30,9 +30,37 @@ def test_label_layer(qtbot):
 def test_highlighting(qtbot):
     dc = DataContainer()
     layer = ValueLayer(dc)
-    
+
     layer.set_highlighted_indices([0, 2])
     assert layer.highlighted_indices == {0, 2}
+
+
+def test_highlighting_uses_original_indices_with_exclusions(qtbot):
+    dc = DataContainer()
+    dc.set_data([[0, 0], [1, 1], [2, 2]], [10, 20, 30], ["A", "B", "C"])
+    layer = ValueLayer(dc)
+
+    layer.set_excluded_indices([1])
+    layer.set_highlighted_indices([2])
+
+    from PySide6.QtGui import QImage, QPainter
+
+    img = QImage(200, 200, QImage.Format.Format_ARGB32)
+    painter = QPainter(img)
+    painter.setFont(layer.font)
+
+    recorded_indices = []
+
+    def record_get_text(idx, value, label):
+        recorded_indices.append(idx)
+        return "recorded"
+
+    layer._get_text = record_get_text
+    layer.paint(painter, None, None)
+    painter.end()
+
+    assert set(recorded_indices) == {0, 2}
+    assert 2 in recorded_indices
 
 def test_collision_avoidance(qtbot):
     dc = DataContainer()
@@ -56,7 +84,8 @@ def test_collision_avoidance(qtbot):
     painter.end()
     
     points, values, labels = layer.get_valid_data()
-    layout = layer._calculate_layout(points, values, labels, metrics)
+    indices = layer.get_valid_indices()
+    layout = layer._calculate_layout(points, values, labels, metrics, indices)
     
     rect0 = layout[0]
     rect1 = layout[1]

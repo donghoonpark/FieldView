@@ -53,6 +53,14 @@ class DataLayer(Layer):
         self._update_bounding_rect()
         self.update_layer()
 
+    def get_valid_indices(self):
+        """
+        Returns the list of data-container indices that are not excluded.
+        """
+        if not self._excluded_indices:
+            return list(range(len(self._data_container.points)))
+        return [i for i in range(len(self._data_container.points)) if i not in self._excluded_indices]
+
     def _update_bounding_rect(self):
         points = self._data_container.points
         if len(points) == 0:
@@ -76,12 +84,12 @@ class DataLayer(Layer):
         points = self._data_container.points
         values = self._data_container.values
         labels = self._data_container.labels
-        
+
         if not self._excluded_indices:
             return points, values, labels
-            
+
         # Create a mask for valid indices
-        mask = [i for i in range(len(points)) if i not in self._excluded_indices]
+        mask = self.get_valid_indices()
         
         # Filter labels (list)
         valid_labels = [labels[i] for i in mask]

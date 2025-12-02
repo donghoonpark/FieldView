@@ -77,15 +77,21 @@ class TextLayer(DataLayer):
 
     def paint(self, painter, option, widget):
         points, values, labels = self.get_valid_data()
-        
+        valid_indices = self.get_valid_indices()
+
         painter.setFont(self._font)
         metrics = painter.fontMetrics()
-        
+
         if self._cached_layout is None:
-            self._cached_layout = self._calculate_layout(points, values, labels, metrics)
-            
+            self._cached_layout = self._calculate_layout(points, values, labels, metrics, valid_indices)
+
+        value_lookup = dict(zip(valid_indices, values))
+        label_lookup = dict(zip(valid_indices, labels))
+
         for i, rect in self._cached_layout.items():
-            text = self._get_text(i, values[i], labels[i])
+            value = value_lookup.get(i)
+            label = label_lookup.get(i, "")
+            text = self._get_text(i, value, label)
             if not text: continue
             
             # Determine background color
@@ -98,12 +104,12 @@ class TextLayer(DataLayer):
             painter.setPen(self._text_color if i not in self._highlighted_indices else Qt.GlobalColor.black)
             painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
-    def _calculate_layout(self, points, values, labels, metrics):
+    def _calculate_layout(self, points, values, labels, metrics, indices):
         layout = {} # index -> QRectF
         placed_rects = []
-        
-        for i, (x, y) in enumerate(points):
-            text = self._get_text(i, values[i], labels[i])
+
+        for i, (x, y), value, label in zip(indices, points, values, labels):
+            text = self._get_text(i, value, label)
             if not text: continue
             
             rect = metrics.boundingRect(text)
