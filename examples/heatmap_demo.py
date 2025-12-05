@@ -2,17 +2,30 @@ import sys
 import os
 import numpy as np
 import pandas as pd
-from PySide6.QtWidgets import (QApplication, QMainWindow, QGraphicsView, QGraphicsScene, 
-                               QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
-                               QSlider, QFileDialog, QDockWidget, QGroupBox, QComboBox)
-from PySide6.QtGui import QPainter, QPolygonF, QColor
-from PySide6.QtCore import Qt, QTimer, QPointF
+from PySide6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QGraphicsView,
+    QGraphicsScene,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QLabel,
+    QFileDialog,
+    QDockWidget,
+    QGroupBox,
+    QComboBox,
+)
+from PySide6.QtGui import QPainter, QPolygonF
+from PySide6.QtCore import Qt, QPointF
 
 # Add project root to sys.path to import fieldview modules
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.heatmap_layer import HeatmapLayer
+from fieldview.ui import ColorRangeControl
 from examples.generate_data import generate_dummy_data
 
 class HeatmapDemo(QMainWindow):
@@ -25,6 +38,8 @@ class HeatmapDemo(QMainWindow):
         self.data_container = DataContainer()
         self.scene = QGraphicsScene()
         self.heatmap_layer = HeatmapLayer(self.data_container)
+
+        self._using_auto_range = True
         
         # Setup Scene
         self.scene.addItem(self.heatmap_layer)
@@ -38,14 +53,16 @@ class HeatmapDemo(QMainWindow):
         
         # Controls (Dock)
         self.setup_controls()
-        
-        # Initial Data
-        self.generate_random_data()
-        
+
         # Status Bar
         self.status_label = QLabel("Ready")
         self.statusBar().addWidget(self.status_label)
-        self.data_container.dataChanged.connect(self.update_status)
+
+        # React to data changes
+        self.data_container.dataChanged.connect(self._handle_data_changed)
+
+        # Initial Data
+        self.generate_random_data()
 
     def setup_controls(self):
         dock = QDockWidget("Controls", self)
@@ -95,8 +112,22 @@ class HeatmapDemo(QMainWindow):
         btn_exclude = QPushButton("Toggle Exclusion (Random)")
         btn_exclude.clicked.connect(self.toggle_exclusion)
         layout_layer.addWidget(btn_exclude)
-        
+
         layout.addWidget(group_layer)
+
+        # Color Range Controls
+        group_color = QGroupBox("Color Range")
+        layout_color = QVBoxLayout(group_color)
+
+        self.color_range_control = ColorRangeControl(self.heatmap_layer.colormap)
+        self.color_range_control.colorRangeChanged.connect(self.apply_color_range)
+        layout_color.addWidget(self.color_range_control)
+
+        btn_auto_range = QPushButton("Auto (Data Min/Max)")
+        btn_auto_range.clicked.connect(self.reset_auto_color_range)
+        layout_color.addWidget(btn_auto_range)
+
+        layout.addWidget(group_color)
         
         layout.addStretch()
         dock.setWidget(widget)
@@ -175,6 +206,37 @@ class HeatmapDemo(QMainWindow):
         else:
             self.heatmap_layer.add_excluded_index(idx)
             self.status_label.setText(f"Excluded point {idx}")
+
+    def apply_color_range(self, color_min, color_max):
+        self._using_auto_range = False
+        self.heatmap_layer.set_color_range(color_min, color_max)
+        self.status_label.setText(f"Color range set to [{color_min:.3f}, {color_max:.3f}]")
+
+    def reset_auto_color_range(self):
+        self._using_auto_range = True
+        self.heatmap_layer.set_color_range(None, None)
+        self._update_color_range_from_data()
+        self.status_label.setText("Color range set to data min/max")
+
+    def _data_value_range(self):
+        values = self.data_container.values
+        if values.size == 0:
+            return 0.0, 1.0
+
+        finite_values = values[np.isfinite(values)]
+        if finite_values.size == 0:
+            return 0.0, 1.0
+
+        return float(finite_values.min()), float(finite_values.max())
+
+    def _update_color_range_from_data(self):
+        color_min, color_max = self._data_value_range()
+        self.color_range_control.set_range(color_min, color_max, emit_signal=False)
+
+    def _handle_data_changed(self):
+        self.update_status()
+        if self._using_auto_range:
+            self._update_color_range_from_data()
 
     def update_status(self):
         count = len(self.data_container.points)
