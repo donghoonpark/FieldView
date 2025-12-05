@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from PySide6.QtCore import QTimer, QPointF, QRectF
-from PySide6.QtGui import QPolygonF, QPainterPath
+from PySide6.QtGui import QPolygonF, QPainterPath, QColor
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.heatmap_layer import HeatmapLayer
 
@@ -73,10 +73,51 @@ def test_boundary_shape_types(qtbot):
 def test_colormap_property(qtbot):
     dc = DataContainer()
     layer = HeatmapLayer(dc)
-    
+
     layer.colormap = "magma"
     assert layer.colormap == "magma"
     assert layer._colormap.name == "magma"
-    
+
     layer.colormap = "viridis"
     assert layer.colormap == "viridis"
+
+
+def test_heatmap_color_range_manual_and_auto(qtbot):
+    dc = DataContainer()
+    layer = HeatmapLayer(dc)
+
+    # Explicit bounds should drive normalization
+    layer.set_color_range(2.0, 8.0)
+    grid = np.array([[0.0, 5.0], [10.0, -1.0]])
+    image = layer._array_to_qimage(grid)
+
+    lut = layer._colormap.get_lut(256)
+    expected_low = np.clip((0.0 - 2.0) / (8.0 - 2.0), 0.0, 1.0)
+    expected_high = np.clip((10.0 - 2.0) / (8.0 - 2.0), 0.0, 1.0)
+
+    low_color = image.pixelColor(0, 0)
+    mid_color = image.pixelColor(1, 0)
+    high_color = image.pixelColor(0, 1)
+    mask_color = image.pixelColor(1, 1)
+
+    assert low_color == QColor.fromRgba(int(lut[int(expected_low * 255)]))
+    assert mid_color == QColor.fromRgba(int(lut[int(0.5 * 255)]))
+    assert high_color == QColor.fromRgba(int(lut[255]))
+    assert mask_color.alpha() == 0
+
+    # Auto bounds use incoming data when range is cleared
+    layer.set_color_range(None, None)
+    auto_image = layer._array_to_qimage(grid)
+    auto_low_color = auto_image.pixelColor(0, 0)
+    auto_high_color = auto_image.pixelColor(0, 1)
+
+    assert auto_low_color == QColor.fromRgba(int(lut[0]))
+    assert auto_high_color == QColor.fromRgba(int(lut[255]))
+
+
+def test_heatmap_color_range_validation(qtbot):
+    dc = DataContainer()
+    layer = HeatmapLayer(dc)
+
+    with pytest.raises(ValueError):
+        layer.set_color_range(5, 5)
