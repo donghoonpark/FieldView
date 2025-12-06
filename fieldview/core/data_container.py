@@ -1,11 +1,18 @@
 import numpy as np
-from qtpy.QtCore import QObject, Signal
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QObject, Signal
+else:
+    from qtpy.QtCore import QObject, Signal
+
 
 class DataContainer(QObject):
     """
     Manages the core data (points and values) for the FieldView library.
     Emits signals when data changes.
     """
+
     dataChanged = Signal()
 
     def __init__(self):
@@ -29,7 +36,7 @@ class DataContainer(QObject):
     def set_data(self, points, values, labels=None):
         """
         Sets the data points, values, and optional labels.
-        
+
         Args:
             points (np.ndarray): Nx2 array of (x, y) coordinates.
             values (np.ndarray): N array of values.
@@ -44,7 +51,7 @@ class DataContainer(QObject):
             raise ValueError("Values must be a 1D array.")
         if len(points) != len(values):
             raise ValueError("Points and values must have the same length.")
-            
+
         if labels is None:
             labels = [""] * len(points)
         elif len(labels) != len(points):
@@ -61,10 +68,10 @@ class DataContainer(QObject):
         """
         points = np.array(points)
         values = np.array(values)
-        
+
         if len(points) == 0:
             return
-            
+
         if labels is None:
             labels = [""] * len(points)
         elif len(labels) != len(points):
@@ -84,20 +91,20 @@ class DataContainer(QObject):
         """
         if index < 0 or index >= len(self._points):
             raise IndexError("Point index out of range.")
-        
+
         changed = False
         if value is not None:
             self._values[index] = value
             changed = True
-        
+
         if point is not None:
             self._points[index] = point
             changed = True
-            
+
         if label is not None:
             self._labels[index] = label
             changed = True
-            
+
         if changed:
             self.dataChanged.emit()
 
@@ -107,18 +114,18 @@ class DataContainer(QObject):
         """
         if len(indices) == 0:
             return
-            
+
         # Sort indices in descending order to avoid shifting issues if we were popping,
         # but numpy delete handles it. For list, we need to be careful.
         # It's better to create a mask or rebuild the list.
-        
+
         mask = np.ones(len(self._points), dtype=bool)
         mask[indices] = False
-        
+
         self._points = self._points[mask]
         self._values = self._values[mask]
         self._labels = [self._labels[i] for i in range(len(self._labels)) if mask[i]]
-        
+
         self.dataChanged.emit()
 
     def clear(self):
@@ -133,11 +140,11 @@ class DataContainer(QObject):
     def get_closest_point(self, x, y, threshold=None):
         """
         Finds the index of the closest point to (x, y).
-        
+
         Args:
             x, y: Coordinates.
             threshold: Optional maximum distance. If closest point is further, returns None.
-            
+
         Returns:
             int: Index of the closest point, or None.
         """
@@ -147,12 +154,12 @@ class DataContainer(QObject):
         # Calculate squared distances
         diff = self._points - np.array([x, y])
         dist_sq = np.sum(diff**2, axis=1)
-        
+
         min_idx = np.argmin(dist_sq)
         min_dist_sq = dist_sq[min_idx]
-        
+
         if threshold is not None:
             if min_dist_sq > threshold**2:
                 return None
-                
+
         return min_idx

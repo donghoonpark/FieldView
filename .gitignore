@@ -156,3 +156,5 @@ cython_debug/
 
 # Generated demo files
 dummy_data.csv
+
+.ruff_cache

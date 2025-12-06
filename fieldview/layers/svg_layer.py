@@ -1,12 +1,24 @@
-from fieldview.utils.qt_compat import QGraphicsSvgItem
-from qtpy.QtSvg import QSvgRenderer
-from qtpy.QtCore import QRectF, QPointF
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtSvg import QSvgRenderer
+    from PySide6.QtCore import QRectF, QPointF
+    from PySide6.QtGui import QPainter
+    from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget
+else:
+    from qtpy.QtSvg import QSvgRenderer
+    from qtpy.QtCore import QRectF, QPointF
+    from qtpy.QtGui import QPainter
+    from qtpy.QtWidgets import QStyleOptionGraphicsItem, QWidget
 from fieldview.layers.layer import Layer
+from typing import Optional
+
 
 class SvgLayer(Layer):
     """
     Layer for rendering an SVG file.
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._renderer = QSvgRenderer()
@@ -54,7 +66,12 @@ class SvgLayer(Layer):
         else:
             print(f"Failed to load SVG: {path}")
 
-    def paint(self, painter, option, widget):
+    def paint(
+        self,
+        painter: "QPainter",
+        option: "QStyleOptionGraphicsItem",
+        widget: Optional["QWidget"] = None,
+    ) -> None:
         if self._renderer.isValid():
             # Render SVG to fit the bounding rect
             self._renderer.render(painter, self.boundingRect())

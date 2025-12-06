@@ -40,4 +40,23 @@ dev = [
     "twine",
     "aiohttp",
     "PySide6-QtAds",
+    "pyside6",
+    "pyside6-stubs",
+    "ruff",
+    "mypy",
+    "pandas-stubs",
 ]
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "scipy.*",
+    "PySide6QtAds.*",
+]
+ignore_missing_imports = true
+ignore_errors = true
+
+
