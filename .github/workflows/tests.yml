@@ -43,11 +43,18 @@ jobs:
         run: |
           uv pip install "numpy==${{ matrix.numpy-version }}"
           
-          if [[ "${{ matrix.qt-binding }}" == "pyqt5" ]]; then
+          if [[ "${{ matrix.qt-binding }}" == "pyside6" ]]; then
+            uv pip install "pyside6==6.8.1"
+          elif [[ "${{ matrix.qt-binding }}" == "pyqt6" ]]; then
+            uv pip install "pyqt6==6.8.1"
+          elif [[ "${{ matrix.qt-binding }}" == "pyqt5" ]]; then
             uv pip install pyqt5
-          else
-            uv pip install "${{ matrix.qt-binding }}==6.8.1"
           fi
+          
+          uv pip install pytest pytest-qt pandas
+          
+          echo "Installed Qt Binding Version:"
+          uv pip show ${{ matrix.qt-binding }}
           
           uv pip install pytest pytest-qt pandas
         
