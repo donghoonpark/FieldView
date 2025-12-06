@@ -34,7 +34,8 @@ from fieldview.layers.pin_layer import PinLayer
 from fieldview.rendering.colormaps import COLORMAPS
 from fieldview.ui import ColorRangeControl
 from fieldview.ui.data_table import DataTable
-from examples.generate_data import generate_dummy_data
+from fieldview.ui.data_table import DataTable
+from examples.us_map_utils import get_state_data, get_us_boundary, load_weather_data, generate_us_dataset
 
 # --- Property Browser Components ---
 
@@ -260,12 +261,12 @@ class DemoApp(QMainWindow):
         self.data_container.dataChanged.connect(self._handle_data_changed)
 
         # 7. Initial Data
-        self.generate_data()
+        self.init_data()
 
     def setup_layers(self):
         # SVG
         self.svg_layer = SvgLayer()
-        svg_path = os.path.join(os.path.dirname(__file__), 'floorplan_apartment.svg')
+        svg_path = os.path.join(os.path.dirname(__file__), 'us_map.svg')
         self.svg_layer.load_svg(svg_path)
         self.scene.addItem(self.svg_layer)
         
@@ -276,7 +277,7 @@ class DemoApp(QMainWindow):
         
         # Pins
         self.pin_layer = PinLayer(self.data_container)
-        self.create_dummy_pin()
+        # self.create_dummy_pin() # Removed dummy pin
         self.scene.addItem(self.pin_layer)
         
         # Values
@@ -491,58 +492,12 @@ class DemoApp(QMainWindow):
 
     # --- Logic Methods (Reused) ---
 
-    def create_dummy_pin(self):
-        # Create a simple black dot
-        pixmap = QPixmap(10, 10)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setBrush(QBrush(Qt.GlobalColor.black))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawEllipse(0, 0, 10, 10)
-        painter.end()
-        self.pin_layer.set_icon(pixmap)
+
 
     def generate_data(self):
-        # Define rooms as rectangles (x1, y1, x2, y2)
-        rooms = [
-            (-450, -250, -150, 250), # Master Bed
-            (-450, -330, -300, -250), # Dress/Bath
-            (-150, -250, 150, 250),  # Living
-            (-150, -300, 150, -250), # Kitchen Nook
-            (150, -250, 300, 0),     # Bed 3
-            (150, 0, 300, 250),      # Bed 2
-            (300, -250, 450, -100),  # Entrance
-            (300, -100, 450, 250)    # Bed 4 / Bath
-        ]
-        
-        points = []
-        values = []
-        labels = []
-        
-        for i in range(20):
-            # Pick a random room
-            room = rooms[np.random.randint(len(rooms))]
-            x1, y1, x2, y2 = room
-            
-            # Random point in room with margin
-            margin = 10
-            x = np.random.uniform(x1 + margin, x2 - margin)
-            y = np.random.uniform(y1 + margin, y2 - margin)
-            
-            points.append([x, y])
-            
-            # Value based on room type
-            if room == rooms[3] or room == rooms[1]: # Kitchen or Bath
-                val = np.random.uniform(25, 35)
-            elif room == rooms[0] or room == rooms[4] or room == rooms[5]: # Bedrooms
-                val = np.random.uniform(18, 22)
-            else:
-                val = np.random.uniform(20, 25)
-            values.append(val)
-            labels.append(f"S{i+1}")
-            
-        self.data_container.set_data(np.array(points), np.array(values), labels)
+        # Regenerate data (reload weather or generate random if needed)
+        # For now, just re-initialize which reloads everything
+        self.init_data()
 
     def add_point(self):
         # Re-use room definitions
@@ -699,6 +654,32 @@ class DemoApp(QMainWindow):
         new_values = np.clip(new_values, 0, 100)
         
         self.data_container.set_data(points, new_values, self.data_container.labels)
+
+    def init_data(self):
+        # Load US Map Data
+        svg_file = os.path.join(os.path.dirname(__file__), 'us_map.svg')
+        state_paths, centroids = get_state_data(svg_file)
+        
+        # Setup Heatmap Boundary
+        us_boundary = get_us_boundary(state_paths)
+        self.heatmap_layer.set_boundary_shape(us_boundary)
+        
+        # Load Weather Data
+        weather_data = load_weather_data()
+        
+        # Generate Dataset
+        points, values = generate_us_dataset(centroids, weather_data)
+        
+        self.data_container.set_data(points, values)
+        
+        # Configure Heatmap Defaults for US Map
+        self.heatmap_layer.neighbors = 100
+        self.heatmap_layer.kernel = "linear" # Robust for map boundaries
+        self.heatmap_layer.colormap = "jet"
+        self.heatmap_layer.setOpacity(0.6)
+        
+        # Update Inspector
+        # (Ideally we would update the property browser values here to match)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

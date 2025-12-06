@@ -37,6 +37,7 @@ class HeatmapLayer(DataLayer):
         self._target_render_time = 100 # Default High (100ms)
         self._hq_delay = 300 # ms
         self._colormap = get_colormap("viridis")
+        self._kernel = 'thin_plate_spline'
         self._color_min = None
         self._color_max = None
         
@@ -122,6 +123,17 @@ class HeatmapLayer(DataLayer):
         if value < 1:
             raise ValueError("Neighbors must be at least 1")
         self._neighbors = int(value)
+        self.on_data_changed()
+
+    @property
+    def kernel(self):
+        return self._kernel
+
+    @kernel.setter
+    def kernel(self, value: str):
+        if value not in ["thin_plate_spline", "linear", "cubic", "quintic", "gaussian", "multiquadric", "inverse_multiquadric"]:
+            raise ValueError(f"Invalid kernel: {value}")
+        self._kernel = value
         self.on_data_changed()
 
     @property
@@ -259,7 +271,7 @@ class HeatmapLayer(DataLayer):
         # Get Interpolator from Cache
         # This handles geometry checks and fitting internally
         rbf_interp, boundary_gen = self._interpolator_cache.get_interpolator(
-            grid_size, points, self._boundary_shape, neighbors
+            grid_size, points, self._boundary_shape, neighbors, kernel=self._kernel
         )
         
         # We need to reconstruct the expanded grid size for reshaping

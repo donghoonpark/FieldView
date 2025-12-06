@@ -100,7 +100,64 @@ class BoundaryPointGenerator:
                 pt = p1 + t * (p2 - p1)
                 boundary_points_list.append(pt)
                 
-        return np.array(boundary_points_list)
+        # Filter points
+        # 1. Remove duplicates and close points within boundary points
+        # 2. Remove points too close to existing data points
+        
+        if not boundary_points_list:
+             return np.empty((0, 2))
+             
+        boundary_points = np.array(boundary_points_list)
+        
+        # 1. Filter boundary points against themselves
+        # We want to keep points that are at least 'min_spacing' apart
+        # Increased to 15.0 to prevent high density of boundary points from dominating
+        # the local neighborhood (especially with low 'neighbors' count), which causes
+        # TPS artifacts/overfitting around isolated data points like FL.
+        min_spacing = 15.0
+        
+        # Sort by x coordinate to make the filtering somewhat deterministic/efficient
+        # or just use a simple greedy approach
+        kept_indices = []
+        if len(boundary_points) > 0:
+            # Use cKDTree for efficient radius search
+            # But we need a greedy selection.
+            # Simple approach: Iterate and skip if close to already kept
+            # For speed, we can use a simple grid or just brute force if N is small (<2000)
+            # Or use cKDTree.query_ball_point on the *kept* points.
+            
+            # Let's use a simple mask approach with cKDTree
+            # This is iterative and might be slow for huge N, but N is ~1000.
+            
+            # Faster approach: `scipy.spatial.KDTree` doesn't support "select subset with min dist" directly.
+            # We can use `query_pairs` to find all pairs < r, then remove one of them.
+            
+            tree = cKDTree(boundary_points)
+            pairs = tree.query_pairs(r=min_spacing)
+            
+            drop_indices = set()
+            for i, j in pairs:
+                if i in drop_indices or j in drop_indices:
+                    continue
+                # Drop the one with higher index (arbitrary)
+                drop_indices.add(j)
+                
+            mask = np.ones(len(boundary_points), dtype=bool)
+            mask[list(drop_indices)] = False
+            boundary_points = boundary_points[mask]
+        
+        # 2. Remove points close to data points
+        if len(points) > 0:
+            tree = cKDTree(points)
+            # Find boundary points that are within a small radius of any data point
+            radius = 5.0 # Increased from 1.0 to 5.0
+            indices_to_remove = tree.query_ball_point(boundary_points, radius)
+            
+            # indices_to_remove is a list of lists of neighbors
+            mask = np.array([len(x) == 0 for x in indices_to_remove], dtype=bool)
+            boundary_points = boundary_points[mask]
+            
+        return boundary_points
 
 class FastRBFInterpolator:
     """
