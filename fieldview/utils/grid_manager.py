@@ -12,7 +12,7 @@ class InterpolatorCache:
         self._max_size = max_size
         self._boundary_gen = BoundaryPointGenerator()
 
-    def get_interpolator(self, grid_size, points, boundary_shape, neighbors=30):
+    def get_interpolator(self, grid_size, points, boundary_shape, neighbors=30, kernel='thin_plate_spline'):
         """
         Returns a fitted FastRBFInterpolator.
         If a matching interpolator exists in cache, returns it.
@@ -27,7 +27,7 @@ class InterpolatorCache:
             rect = boundary_shape.boundingRect()
             boundary_hash = hash((boundary_shape.count(), boundary_shape.at(0).x(), rect.center().x(), rect.center().y()))
             
-        key = (grid_size, points_hash, boundary_hash, neighbors)
+        key = (grid_size, points_hash, boundary_hash, neighbors, kernel)
         
         # 2. Check Cache
         if key in self._cache:
@@ -65,7 +65,7 @@ class InterpolatorCache:
         grid_points = np.column_stack((X.ravel(), Y.ravel()))
         
         # Fit RBF
-        rbf = FastRBFInterpolator(neighbors=neighbors)
+        rbf = FastRBFInterpolator(neighbors=neighbors, kernel=kernel)
         rbf.fit(all_source_points, grid_points)
         
         # 4. Update Cache

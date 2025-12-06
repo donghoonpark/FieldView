@@ -1,4 +1,4 @@
-from qtpy.QtSvgWidgets import QGraphicsSvgItem
+from fieldview.utils.qt_compat import QGraphicsSvgItem
 from qtpy.QtSvg import QSvgRenderer
 from qtpy.QtCore import QRectF, QPointF
 from fieldview.layers.layer import Layer

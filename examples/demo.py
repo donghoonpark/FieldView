@@ -15,9 +15,13 @@ from qtpy.QtWidgets import (QApplication, QGraphicsView, QGraphicsScene, QMainWi
                                 QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, 
                                 QComboBox, QCheckBox, QPushButton, QTableWidget, QTableView,
                                 QTableWidgetItem, QHeaderView, QFileDialog, QLabel, QTreeWidget,
-                                QTreeWidgetItem, QGraphicsEllipseItem, QGraphicsLineItem, QAbstractItemView)
+                                QTreeWidgetItem, QGraphicsEllipseItem, QGraphicsLineItem, QAbstractItemView,
+                                QLineEdit, QColorDialog)
 from qtpy.QtGui import QPainter, QBrush, QPen, QColor, QPolygonF, QAction, QIcon, QPixmap, QStandardItemModel, QStandardItem, QFont, QPainterPath
 from qtpy.QtCore import Qt, QTimer, QPointF, QRectF, QAbstractTableModel, QModelIndex, Signal
+
+# Import QtAds
+import PySide6QtAds as ads
 
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -29,7 +33,9 @@ from fieldview.layers.svg_layer import SvgLayer
 from fieldview.layers.pin_layer import PinLayer
 from fieldview.rendering.colormaps import COLORMAPS
 from fieldview.ui import ColorRangeControl
-from examples.generate_data import generate_dummy_data
+from fieldview.ui.data_table import DataTable
+from fieldview.ui.data_table import DataTable
+from examples.us_map_utils import get_state_data, get_us_boundary, load_weather_data, generate_us_dataset
 
 # --- Property Browser Components ---
 
@@ -64,7 +70,6 @@ class PropertyBrowser(QTreeWidget):
         spin.setSingleStep(step)
         spin.setDecimals(decimals)
         spin.setValue(value)
-        # Remove frame for cleaner look in tree
         spin.setFrame(False)
         spin.valueChanged.connect(setter)
         
@@ -93,7 +98,6 @@ class PropertyBrowser(QTreeWidget):
         check.setChecked(value)
         check.toggled.connect(setter)
         
-        # Center the checkbox
         widget = QWidget()
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(0,0,0,0)
@@ -116,6 +120,39 @@ class PropertyBrowser(QTreeWidget):
         
         self.setItemWidget(item, 1, combo)
         return item
+    
+    def add_string_property(self, parent, name, value, setter):
+        item = QTreeWidgetItem(parent)
+        item.setText(0, name)
+        
+        edit = QLineEdit(value)
+        edit.setFrame(False)
+        edit.textChanged.connect(setter)
+        
+        self.setItemWidget(item, 1, edit)
+        return item
+
+    def add_color_property(self, parent, name, value, setter):
+        item = QTreeWidgetItem(parent)
+        item.setText(0, name)
+        
+        btn = QPushButton()
+        btn.setFlat(True)
+        
+        def update_btn_color(color):
+            btn.setStyleSheet(f"background-color: {color.name()}; border: 1px solid gray;")
+            
+        update_btn_color(value)
+        
+        def pick_color():
+            color = QColorDialog.getColor(value, None, f"Select {name}")
+            if color.isValid():
+                update_btn_color(color)
+                setter(color)
+        
+        btn.clicked.connect(pick_color)
+        self.setItemWidget(item, 1, btn)
+        return item
 
     def add_action_property(self, parent, name, button_text, callback):
         item = QTreeWidgetItem(parent)
@@ -127,100 +164,7 @@ class PropertyBrowser(QTreeWidget):
         self.setItemWidget(item, 1, btn)
         return item
 
-# --- Data Table Model (Reused) ---
 
-class PointTableModel(QAbstractTableModel):
-    def __init__(self, data_container):
-        super().__init__()
-        self._data_container = data_container
-        self._data_container.dataChanged.connect(self._handle_data_changed)
-        self._highlighted_indices = set()
-        self._excluded_indices = set()
-
-    def rowCount(self, parent=QModelIndex()):
-        return len(self._data_container.points)
-
-    def columnCount(self, parent=QModelIndex()):
-        return 6 # Highlight, Exclude, X, Y, Value, Label
-
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
-        if not index.isValid(): return None
-        row, col = index.row(), index.column()
-        
-        if role == Qt.ItemDataRole.DisplayRole or role == Qt.ItemDataRole.EditRole:
-            if col == 2: return f"{self._data_container.points[row][0]:.2f}"
-            if col == 3: return f"{self._data_container.points[row][1]:.2f}"
-            if col == 4: return f"{self._data_container.values[row]:.2f}"
-            if col == 5: return self._data_container.labels[row]
-
-        if role == Qt.ItemDataRole.CheckStateRole:
-            if col == 0:
-                return Qt.CheckState.Checked if row in self._highlighted_indices else Qt.CheckState.Unchecked
-            if col == 1:
-                return Qt.CheckState.Checked if row in self._excluded_indices else Qt.CheckState.Unchecked
-        return None
-
-    def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
-        if not index.isValid(): return False
-        row, col = index.row(), index.column()
-        
-        if role == Qt.ItemDataRole.CheckStateRole:
-            if col == 0:
-                if value == Qt.CheckState.Checked.value: self._highlighted_indices.add(row)
-                else: self._highlighted_indices.discard(row)
-            elif col == 1:
-                if value == Qt.CheckState.Checked.value: self._excluded_indices.add(row)
-                else: self._excluded_indices.discard(row)
-            else:
-                return False
-            self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
-            return True
-            
-        if role == Qt.ItemDataRole.EditRole:
-            try:
-                if col == 2:
-                    new_x = float(value)
-                    y = self._data_container.points[row][1]
-                    self._data_container.update_point(row, point=[new_x, y])
-                elif col == 3:
-                    new_y = float(value)
-                    x = self._data_container.points[row][0]
-                    self._data_container.update_point(row, point=[x, new_y])
-                elif col == 4:
-                    new_val = float(value)
-                    self._data_container.update_point(row, value=new_val)
-                elif col == 5:
-                    self._data_container.update_point(row, label=str(value))
-                return True
-            except ValueError: return False
-        return False
-
-    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
-        if role == Qt.ItemDataRole.DisplayRole and orientation == Qt.Orientation.Horizontal:
-            return ["Highlight", "Exclude", "X", "Y", "Value", "Label"][section]
-        return None
-
-    def flags(self, index):
-        flags = super().flags(index)
-        if index.column() in (0, 1): flags |= Qt.ItemFlag.ItemIsUserCheckable
-        else: flags |= Qt.ItemFlag.ItemIsEditable
-        return flags
-
-    def get_highlighted_indices(self):
-        return list(self._highlighted_indices)
-
-    def get_excluded_indices(self):
-        return list(self._excluded_indices)
-
-    def _handle_data_changed(self):
-        max_index = len(self._data_container.points)
-        self._highlighted_indices = {i for i in self._highlighted_indices if i < max_index}
-        self._excluded_indices = {i for i in self._excluded_indices if i < max_index}
-        self.layoutChanged.emit()
-        if max_index:
-            top_left = self.index(0, 0)
-            bottom_right = self.index(self.rowCount() - 1, 1)
-            self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.CheckStateRole])
 
 # --- Polygon Editor Helpers (Reused) ---
 
@@ -269,8 +213,8 @@ class PolygonEdge(QGraphicsLineItem):
 class DemoApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("FieldView Demo")
-        self.resize(1400, 900)
+        self.setWindowTitle("FieldView Demo (QtAds)")
+        self.resize(1600, 900)
         
         # 1. Setup Core
         self.data_container = DataContainer()
@@ -282,15 +226,21 @@ class DemoApp(QMainWindow):
 
         self._using_auto_range = True
 
-        # 3. Setup View
+        # 3. Setup Dock Manager
+        self.dock_manager = ads.CDockManager(self)
+        
+        # 4. Setup View Dock
         self.view = QGraphicsView(self.scene)
         self.view.setRenderHint(QPainter.Antialiasing)
         self.view.setDragMode(QGraphicsView.ScrollHandDrag)
         self.view.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.view.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
-        self.setCentralWidget(self.view)
         
-        # 4. Initialize Polygon State (Before Properties Dock)
+        self.dock_view = ads.CDockWidget("Viewport")
+        self.dock_view.setWidget(self.view)
+        self.dock_manager.addDockWidget(ads.DockWidgetArea.CenterDockWidgetArea, self.dock_view)
+        
+        # 5. Initialize Polygon State
         self.polygon_handles = []
         self.polygon_edges = []
         self.heatmap_polygon = QPolygonF([
@@ -300,20 +250,23 @@ class DemoApp(QMainWindow):
             QPointF(-450, 250)
         ])
         self.update_heatmap_polygon()
-        self.toggle_polygon_handles(False) # Hidden by default
+        self.toggle_polygon_handles(False)
 
-        # 5. Setup Properties Dock
+        # 6. Setup Other Docks
         self.setup_properties_dock()
+        self.setup_data_dock()
+        self.setup_simulation_dock()
+        self.setup_color_dock()
 
         self.data_container.dataChanged.connect(self._handle_data_changed)
 
-        # 6. Initial Data
-        self.generate_data()
+        # 7. Initial Data
+        self.init_data()
 
     def setup_layers(self):
         # SVG
         self.svg_layer = SvgLayer()
-        svg_path = os.path.join(os.path.dirname(__file__), 'floorplan_apartment.svg')
+        svg_path = os.path.join(os.path.dirname(__file__), 'us_map.svg')
         self.svg_layer.load_svg(svg_path)
         self.scene.addItem(self.svg_layer)
         
@@ -324,7 +277,7 @@ class DemoApp(QMainWindow):
         
         # Pins
         self.pin_layer = PinLayer(self.data_container)
-        self.create_dummy_pin()
+        # self.create_dummy_pin() # Removed dummy pin
         self.scene.addItem(self.pin_layer)
         
         # Values
@@ -339,9 +292,7 @@ class DemoApp(QMainWindow):
         self.scene.addItem(self.label_layer)
 
     def setup_properties_dock(self):
-        dock = QDockWidget("Inspector", self)
-        dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea)
-        
+        self.dock_props = ads.CDockWidget("Inspector")
         widget = QWidget()
         layout = QVBoxLayout(widget)
         
@@ -350,40 +301,28 @@ class DemoApp(QMainWindow):
         self.lbl_render_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.lbl_render_time)
         
-        # Connect signal
         self.heatmap_layer.renderingFinished.connect(self.update_render_time)
 
         # Property Browser
         self.props = PropertyBrowser()
-        layout.addWidget(self.props, stretch=1)
-
-        # Color Range Controls
-        group_color = QGroupBox("Color Range")
-        layout_color = QVBoxLayout(group_color)
-
-        self.color_range_control = ColorRangeControl(self.heatmap_layer.colormap)
-        self.color_range_control.colorRangeChanged.connect(self.apply_color_range)
-        layout_color.addWidget(self.color_range_control)
-
-        btn_auto_range = QPushButton("Auto (Data Min/Max)")
-        btn_auto_range.clicked.connect(self.reset_auto_color_range)
-        layout_color.addWidget(btn_auto_range)
-
-        layout.addWidget(group_color)
-
-        # Data Table
-        group_data = QGroupBox("Data Points")
-        layout_data = QVBoxLayout(group_data)
-        layout_data.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.props)
         
-        self.table_model = PointTableModel(self.data_container)
+        self.dock_props.setWidget(widget)
+        self.dock_manager.addDockWidget(ads.DockWidgetArea.RightDockWidgetArea, self.dock_props)
+        
+        self.populate_all_properties()
+
+    def setup_data_dock(self):
+        self.dock_data = ads.CDockWidget("Data Points")
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.table_view = DataTable(self.data_container)
+        self.table_model = self.table_view.table_model
         self.table_model.dataChanged.connect(self.on_table_changed)
         
-        self.table_view = QTableView()
-        self.table_view.setModel(self.table_model)
-        self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.table_view.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        layout_data.addWidget(self.table_view)
+        layout.addWidget(self.table_view)
         
         btn_layout = QHBoxLayout()
         btn_add = QPushButton("Add Random")
@@ -398,12 +337,16 @@ class DemoApp(QMainWindow):
         btn_regen.clicked.connect(self.generate_data)
         btn_layout.addWidget(btn_regen)
         
-        layout_data.addLayout(btn_layout)
-        layout.addWidget(group_data, stretch=0)
+        layout.addLayout(btn_layout)
         
-        # Simulation Controls
-        group_sim = QGroupBox("Simulation")
-        layout_sim = QVBoxLayout(group_sim)
+        self.dock_data.setWidget(widget)
+        # Split Inspector vertically, putting Data Points at the bottom
+        self.dock_manager.addDockWidget(ads.DockWidgetArea.BottomDockWidgetArea, self.dock_data, self.dock_props.dockAreaWidget())
+
+    def setup_simulation_dock(self):
+        self.dock_sim = ads.CDockWidget("Simulation")
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
         
         hbox_sim = QHBoxLayout()
         hbox_sim.addWidget(QLabel("Interval (ms):"))
@@ -411,7 +354,7 @@ class DemoApp(QMainWindow):
         self.spin_interval.setRange(10, 2000)
         self.spin_interval.setValue(50)
         hbox_sim.addWidget(self.spin_interval)
-        layout_sim.addLayout(hbox_sim)
+        layout.addLayout(hbox_sim)
         
         hbox_noise = QHBoxLayout()
         hbox_noise.addWidget(QLabel("Noise Amt:"))
@@ -419,20 +362,37 @@ class DemoApp(QMainWindow):
         self.spin_noise.setRange(0.0, 50.0)
         self.spin_noise.setValue(5.0)
         hbox_noise.addWidget(self.spin_noise)
-        layout_sim.addLayout(hbox_noise)
+        layout.addLayout(hbox_noise)
         
         self.btn_sim = QPushButton("Start Noise")
         self.btn_sim.setCheckable(True)
         self.btn_sim.toggled.connect(self.toggle_simulation)
-        layout_sim.addWidget(self.btn_sim)
+        layout.addWidget(self.btn_sim)
         
-        layout.addWidget(group_sim)
+        layout.addStretch()
         
-        dock.setWidget(widget)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+        self.dock_sim.setWidget(widget)
+        # Tabify with Data Points
+        self.dock_manager.addDockWidget(ads.DockWidgetArea.CenterDockWidgetArea, self.dock_sim, self.dock_data.dockAreaWidget())
+
+    def setup_color_dock(self):
+        self.dock_color = ads.CDockWidget("Color Range")
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+
+        self.color_range_control = ColorRangeControl(self.heatmap_layer.colormap)
+        self.color_range_control.colorRangeChanged.connect(self.apply_color_range)
+        layout.addWidget(self.color_range_control)
+
+        btn_auto_range = QPushButton("Auto (Data Min/Max)")
+        btn_auto_range.clicked.connect(self.reset_auto_color_range)
+        layout.addWidget(btn_auto_range)
         
-        # Populate all properties
-        self.populate_all_properties()
+        layout.addStretch()
+
+        self.dock_color.setWidget(widget)
+        # Tabify with Data Points
+        self.dock_manager.addDockWidget(ads.DockWidgetArea.CenterDockWidgetArea, self.dock_color, self.dock_data.dockAreaWidget())
 
     def populate_all_properties(self):
         self.props.clear_properties()
@@ -454,10 +414,12 @@ class DemoApp(QMainWindow):
             self._set_heatmap_colormap,
         )
         
-        # Quality now maps to target render time
         self.props.add_enum_property(root, "Quality", self.heatmap_layer.quality.title(), ["Very Low", "Low", "Medium", "High", "Very High", "Adaptive"], 
                                      lambda q: setattr(self.heatmap_layer, 'quality', q))
         
+        self.props.add_int_property(root, "Neighbors", self.heatmap_layer.neighbors,
+                                    lambda n: setattr(self.heatmap_layer, 'neighbors', n), min_val=1, max_val=100)
+
         self.props.add_enum_property(root, "Boundary Shape", "Custom Polygon", ["Custom Polygon", "Rectangle", "Circle"],
                                      self.change_boundary_shape)
         self.props.add_bool_property(root, "Edit Polygon", self.polygon_handles[0].isVisible() if self.polygon_handles else False,
@@ -476,6 +438,13 @@ class DemoApp(QMainWindow):
                                     lambda s: self.set_layer_font_size(self.value_layer, s), min_val=6, max_val=72)
         self.props.add_int_property(root, "Decimals", self.value_layer.decimal_places, 
                                     lambda d: setattr(self.value_layer, 'decimal_places', d), min_val=0, max_val=5)
+        
+        self.props.add_string_property(root, "Prefix", self.value_layer.prefix, lambda s: setattr(self.value_layer, 'prefix', s))
+        self.props.add_string_property(root, "Suffix", self.value_layer.suffix, lambda s: setattr(self.value_layer, 'suffix', s))
+        
+        self.props.add_color_property(root, "Highlight Color", self.value_layer.highlight_color, 
+                                      lambda c: setattr(self.value_layer, 'highlight_color', c))
+
         self.props.add_bool_property(root, "Avoid Collisions", self.value_layer.collision_avoidance_enabled, 
                                      lambda b: setattr(self.value_layer, 'collision_avoidance_enabled', b))
         self.props.add_float_property(root, "Offset Factor", self.value_layer.collision_offset_factor, 
@@ -487,6 +456,10 @@ class DemoApp(QMainWindow):
         self.props.add_float_property(root, "Opacity", self.label_layer.opacity(), self.label_layer.setOpacity, step=0.05)
         self.props.add_int_property(root, "Font Size", self.label_layer.font.pixelSize(), 
                                     lambda s: self.set_layer_font_size(self.label_layer, s), min_val=6, max_val=72)
+        
+        self.props.add_color_property(root, "Highlight Color", self.label_layer.highlight_color, 
+                                      lambda c: setattr(self.label_layer, 'highlight_color', c))
+
         self.props.add_bool_property(root, "Avoid Collisions", self.label_layer.collision_avoidance_enabled, 
                                      lambda b: setattr(self.label_layer, 'collision_avoidance_enabled', b))
         self.props.add_float_property(root, "Offset Factor", self.label_layer.collision_offset_factor, 
@@ -521,58 +494,10 @@ class DemoApp(QMainWindow):
 
 
 
-    def create_dummy_pin(self):
-        # Create a simple black dot
-        pixmap = QPixmap(10, 10)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setBrush(QBrush(Qt.GlobalColor.black))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawEllipse(0, 0, 10, 10)
-        painter.end()
-        self.pin_layer.set_icon(pixmap)
-
     def generate_data(self):
-        # Define rooms as rectangles (x1, y1, x2, y2)
-        rooms = [
-            (-450, -250, -150, 250), # Master Bed
-            (-450, -330, -300, -250), # Dress/Bath
-            (-150, -250, 150, 250),  # Living
-            (-150, -300, 150, -250), # Kitchen Nook
-            (150, -250, 300, 0),     # Bed 3
-            (150, 0, 300, 250),      # Bed 2
-            (300, -250, 450, -100),  # Entrance
-            (300, -100, 450, 250)    # Bed 4 / Bath
-        ]
-        
-        points = []
-        values = []
-        labels = []
-        
-        for i in range(20):
-            # Pick a random room
-            room = rooms[np.random.randint(len(rooms))]
-            x1, y1, x2, y2 = room
-            
-            # Random point in room with margin
-            margin = 10
-            x = np.random.uniform(x1 + margin, x2 - margin)
-            y = np.random.uniform(y1 + margin, y2 - margin)
-            
-            points.append([x, y])
-            
-            # Value based on room type
-            if room == rooms[3] or room == rooms[1]: # Kitchen or Bath
-                val = np.random.uniform(25, 35)
-            elif room == rooms[0] or room == rooms[4] or room == rooms[5]: # Bedrooms
-                val = np.random.uniform(18, 22)
-            else:
-                val = np.random.uniform(20, 25)
-            values.append(val)
-            labels.append(f"S{i+1}")
-            
-        self.data_container.set_data(np.array(points), np.array(values), labels)
+        # Regenerate data (reload weather or generate random if needed)
+        # For now, just re-initialize which reloads everything
+        self.init_data()
 
     def add_point(self):
         # Re-use room definitions
@@ -728,10 +653,33 @@ class DemoApp(QMainWindow):
         # Clamp values to 0-100 for sanity
         new_values = np.clip(new_values, 0, 100)
         
-        # Update data container in batch? 
-        # DataContainer doesn't have batch update for values only, 
-        # but set_data does.
         self.data_container.set_data(points, new_values, self.data_container.labels)
+
+    def init_data(self):
+        # Load US Map Data
+        svg_file = os.path.join(os.path.dirname(__file__), 'us_map.svg')
+        state_paths, centroids = get_state_data(svg_file)
+        
+        # Setup Heatmap Boundary
+        us_boundary = get_us_boundary(state_paths)
+        self.heatmap_layer.set_boundary_shape(us_boundary)
+        
+        # Load Weather Data
+        weather_data = load_weather_data()
+        
+        # Generate Dataset
+        points, values = generate_us_dataset(centroids, weather_data)
+        
+        self.data_container.set_data(points, values)
+        
+        # Configure Heatmap Defaults for US Map
+        self.heatmap_layer.neighbors = 100
+        self.heatmap_layer.kernel = "linear" # Robust for map boundaries
+        self.heatmap_layer.colormap = "jet"
+        self.heatmap_layer.setOpacity(0.6)
+        
+        # Update Inspector
+        # (Ideally we would update the property browser values here to match)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

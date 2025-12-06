@@ -44,7 +44,7 @@ def test_highlighting_uses_original_indices_with_exclusions(qtbot):
     layer.set_excluded_indices([1])
     layer.set_highlighted_indices([2])
 
-    from PySide6.QtGui import QImage, QPainter
+    from qtpy.QtGui import QImage, QPainter
 
     img = QImage(200, 200, QImage.Format.Format_ARGB32)
     painter = QPainter(img)
@@ -75,7 +75,7 @@ def test_collision_avoidance(qtbot):
     # We need to trigger paint or calculate_layout manually
     # Since calculate_layout is internal, we can access it for testing
     
-    from PySide6.QtGui import QFontMetrics, QPainter, QImage
+    from qtpy.QtGui import QFontMetrics, QPainter, QImage
     
     # Create a dummy painter to get metrics
     img = QImage(100, 100, QImage.Format.Format_ARGB32)
