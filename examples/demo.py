@@ -13,8 +13,9 @@ import pandas as pd
 from qtpy.QtWidgets import (QApplication, QGraphicsView, QGraphicsScene, QMainWindow, 
                                 QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, 
                                 QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, 
-                                QComboBox, QCheckBox, QPushButton, QTableWidget, 
-                                QTableWidgetItem, QHeaderView, QFileDialog, QLabel)
+                                QComboBox, QCheckBox, QPushButton, QTableWidget, QTableView,
+                                QTableWidgetItem, QHeaderView, QFileDialog, QLabel, QTreeWidget,
+                                QTreeWidgetItem, QGraphicsEllipseItem, QGraphicsLineItem, QAbstractItemView)
 from qtpy.QtGui import QPainter, QBrush, QPen, QColor, QPolygonF, QAction, QIcon, QPixmap, QStandardItemModel, QStandardItem, QFont, QPainterPath
 from qtpy.QtCore import Qt, QTimer, QPointF, QRectF, QAbstractTableModel, QModelIndex, Signal
 
