@@ -1,6 +1,9 @@
 from qtpy.QtGui import QPainter, QColor, QFont, QFontMetrics, QFontDatabase
 from qtpy.QtCore import Qt, QRectF, QPointF
+from qtpy.QtWidgets import QStyleOptionGraphicsItem, QWidget
 import os
+import numpy as np
+from typing import Optional, List, Dict, Set, Union, Tuple
 from fieldview.layers.data_layer import DataLayer
 
 class TextLayer(DataLayer):
@@ -8,7 +11,7 @@ class TextLayer(DataLayer):
     Abstract base class for text-based layers.
     Handles font, opacity, and highlighting.
     """
-    def __init__(self, data_container, parent=None):
+    def __init__(self, data_container, parent: Optional[DataLayer] = None):
         super().__init__(data_container, parent)
         
         # Load embedded font
@@ -37,37 +40,51 @@ class TextLayer(DataLayer):
         self._cached_layout = None
 
     @property
-    def font(self):
+    def font(self) -> QFont:
         return self._font
 
     @font.setter
-    def font(self, value):
+    def font(self, value: QFont):
         self._font = value
         self.update_layer()
 
     @property
-    def highlighted_indices(self):
+    def highlighted_indices(self) -> Set[int]:
         return self._highlighted_indices
 
-    def set_highlighted_indices(self, indices):
+    def set_highlighted_indices(self, indices: List[int]):
         self._highlighted_indices = set(indices)
         self.update_layer()
 
     @property
-    def collision_avoidance_enabled(self):
+    def highlight_color(self) -> QColor:
+        return self._highlight_color
+
+    @highlight_color.setter
+    def highlight_color(self, color: Union[QColor, str, Qt.GlobalColor]):
+        if isinstance(color, (str, Qt.GlobalColor)):
+            self._highlight_color = QColor(color)
+        elif isinstance(color, QColor):
+            self._highlight_color = color
+        else:
+            raise TypeError("Color must be QColor, str, or Qt.GlobalColor")
+        self.update_layer()
+
+    @property
+    def collision_avoidance_enabled(self) -> bool:
         return self._collision_avoidance_enabled
 
     @collision_avoidance_enabled.setter
-    def collision_avoidance_enabled(self, enabled):
+    def collision_avoidance_enabled(self, enabled: bool):
         self._collision_avoidance_enabled = enabled
         self.update_layer()
 
     @property
-    def collision_offset_factor(self):
+    def collision_offset_factor(self) -> float:
         return self._collision_offset_factor
 
     @collision_offset_factor.setter
-    def collision_offset_factor(self, factor):
+    def collision_offset_factor(self, factor: float):
         self._collision_offset_factor = factor
         self.update_layer()
 
@@ -75,7 +92,7 @@ class TextLayer(DataLayer):
         self._cached_layout = None
         super().update_layer()
 
-    def paint(self, painter, option, widget):
+    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = None):
         points, values, labels = self.get_valid_data()
         valid_indices = self.get_valid_indices()
 
@@ -104,7 +121,7 @@ class TextLayer(DataLayer):
             painter.setPen(self._text_color if i not in self._highlighted_indices else Qt.GlobalColor.black)
             painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
 
-    def _calculate_layout(self, points, values, labels, metrics, indices):
+    def _calculate_layout(self, points: np.ndarray, values: np.ndarray, labels: List[str], metrics: QFontMetrics, indices: List[int]) -> Dict[int, QRectF]:
         layout = {} # index -> QRectF
         placed_rects = []
 
@@ -173,7 +190,7 @@ class TextLayer(DataLayer):
             
         return layout
 
-    def _get_text(self, index, value, label):
+    def _get_text(self, index: int, value: float, label: str) -> str:
         """
         Abstract method to get text for a point.
         """
@@ -183,7 +200,7 @@ class ValueLayer(TextLayer):
     """
     Renders numerical values.
     """
-    def __init__(self, data_container, parent=None):
+    def __init__(self, data_container, parent: Optional[DataLayer] = None):
         super().__init__(data_container, parent)
         self._decimal_places = 2
         self._suffix = ""
@@ -193,38 +210,38 @@ class ValueLayer(TextLayer):
         self._prefix = ""
 
     @property
-    def decimal_places(self):
+    def decimal_places(self) -> int:
         return self._decimal_places
 
     @decimal_places.setter
-    def decimal_places(self, value):
+    def decimal_places(self, value: int):
         self._decimal_places = value
         self.update_layer()
 
     @property
-    def suffix(self):
+    def suffix(self) -> str:
         return self._suffix
 
     @suffix.setter
-    def suffix(self, value):
+    def suffix(self, value: str):
         self._suffix = value
         self.update_layer()
         
     @property
-    def prefix(self):
+    def prefix(self) -> str:
         return self._prefix
 
     @prefix.setter
-    def prefix(self, value):
+    def prefix(self, value: str):
         self._prefix = value
         self.update_layer()
 
-    def _get_text(self, index, value, label):
+    def _get_text(self, index: int, value: float, label: str) -> str:
         return f"{self._prefix}{value:.{self._decimal_places}f}{self._suffix}"
 
 class LabelLayer(TextLayer):
     """
     Renders text labels.
     """
-    def _get_text(self, index, value, label):
+    def _get_text(self, index: int, value: float, label: str) -> str:
         return str(label)

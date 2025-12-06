@@ -114,6 +114,17 @@ class HeatmapLayer(DataLayer):
         self.on_data_changed()
 
     @property
+    def neighbors(self):
+        return self._neighbors
+
+    @neighbors.setter
+    def neighbors(self, value):
+        if value < 1:
+            raise ValueError("Neighbors must be at least 1")
+        self._neighbors = int(value)
+        self.on_data_changed()
+
+    @property
     def quality(self) -> QualityLevel:
         if self._is_adaptive: return 'adaptive'
         if self._idle_grid_size <= 50: return 'very low'
