@@ -8,12 +8,14 @@ on:
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }}
+    name: ${{ matrix.os }} / ${{ matrix.qt-binding }} / numpy-${{ matrix.numpy-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        qt-binding: [pyside6, pyqt6, pyqt5]
+        numpy-version: ['1.24.4', '1.26.4', '2.1.0']
 
     steps:
       - uses: actions/checkout@v4
@@ -28,10 +30,29 @@ jobs:
         uses: astral-sh/setup-uv@v4
         
       - name: Set up Python
-        run: uv python install
+        run: uv python install 3.10
         
-      - name: Install dependencies
-        run: uv sync --all-extras --dev
+      - name: Create Virtual Environment
+        run: uv venv
+
+      - name: Install Base Dependencies
+        run: uv pip install .
+
+      - name: Install Matrix Dependencies
+        shell: bash
+        run: |
+          uv pip install "numpy==${{ matrix.numpy-version }}"
+          
+          if [[ "${{ matrix.qt-binding }}" == "pyqt5" ]]; then
+            uv pip install pyqt5
+          else
+            uv pip install "${{ matrix.qt-binding }}==6.8.1"
+          fi
+          
+          uv pip install pytest pytest-qt pandas
         
       - name: Run Tests
+        # Set QT_API environment variable based on binding
+        env:
+          QT_API: ${{ matrix.qt-binding }}
         run: uv run pytest
