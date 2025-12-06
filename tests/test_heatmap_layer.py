@@ -106,7 +106,6 @@ def test_heatmap_color_range_manual_and_auto(qtbot):
     lut = layer._colormap.get_lut(256)
     expected_low = np.clip((0.0 - 2.0) / (8.0 - 2.0), 0.0, 1.0)
 
-
     low_color = image.pixelColor(0, 0)
     mid_color = image.pixelColor(1, 0)
     high_color = image.pixelColor(0, 1)

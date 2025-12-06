@@ -37,4 +37,3 @@ def _configure_threads():
 _configure_threads()
 
 from .ui.field_view import FieldView as FieldView  # noqa: E402
-
