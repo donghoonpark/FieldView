@@ -56,10 +56,10 @@ jobs:
           echo "Installed Qt Binding Version:"
           uv pip show ${{ matrix.qt-binding }}
           
-          uv pip install pytest pytest-qt pandas
+
         
       - name: Run Tests
         # Set QT_API environment variable based on binding
         env:
           QT_API: ${{ matrix.qt-binding }}
-        run: uv run pytest
+        run: uv run --no-sync pytest
