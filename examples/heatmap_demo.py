@@ -2,22 +2,42 @@ import sys
 import os
 import numpy as np
 import pandas as pd
-from qtpy.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QGraphicsView,
-    QGraphicsScene,
-    QWidget,
-    QVBoxLayout,
-    QPushButton,
-    QLabel,
-    QFileDialog,
-    QDockWidget,
-    QGroupBox,
-    QComboBox,
-)
-from qtpy.QtGui import QPainter, QPolygonF
-from qtpy.QtCore import Qt, QPointF
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtWidgets import (
+        QApplication,
+        QMainWindow,
+        QGraphicsView,
+        QGraphicsScene,
+        QWidget,
+        QVBoxLayout,
+        QPushButton,
+        QLabel,
+        QFileDialog,
+        QDockWidget,
+        QGroupBox,
+        QComboBox,
+    )
+    from PySide6.QtGui import QPainter, QPolygonF
+    from PySide6.QtCore import Qt, QPointF
+else:
+    from qtpy.QtWidgets import (
+        QApplication,
+        QMainWindow,
+        QGraphicsView,
+        QGraphicsScene,
+        QWidget,
+        QVBoxLayout,
+        QPushButton,
+        QLabel,
+        QFileDialog,
+        QDockWidget,
+        QGroupBox,
+        QComboBox,
+    )
+    from qtpy.QtGui import QPainter, QPolygonF
+    from qtpy.QtCore import Qt, QPointF
 
 # Add project root to sys.path to import fieldview modules
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -47,8 +67,8 @@ class HeatmapDemo(QMainWindow):
 
         # View
         self.view = QGraphicsView(self.scene)
-        self.view.setRenderHint(QPainter.Antialiasing)
-        self.view.setDragMode(QGraphicsView.ScrollHandDrag)
+        self.view.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.view.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setCentralWidget(self.view)
 
         # Controls (Dock)
@@ -66,7 +86,9 @@ class HeatmapDemo(QMainWindow):
 
     def setup_controls(self):
         dock = QDockWidget("Controls", self)
-        dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        dock.setAllowedAreas(
+            Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
+        )
 
         widget = QWidget()
         layout = QVBoxLayout(widget)
@@ -131,7 +153,7 @@ class HeatmapDemo(QMainWindow):
 
         layout.addStretch()
         dock.setWidget(widget)
-        self.addDockWidget(Qt.RightDockWidgetArea, dock)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
 
     def load_csv(self):
         filename, _ = QFileDialog.getOpenFileName(
@@ -253,9 +275,7 @@ class HeatmapDemo(QMainWindow):
 
 
 if __name__ == "__main__":
-    from qtpy.QtGui import (
-        QPainter,
-    )  # Import here to avoid circular dependency issues if any
+    # QPainter is already imported at top level
 
     app = QApplication(sys.argv)
     window = HeatmapDemo()

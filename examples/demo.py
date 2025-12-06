@@ -7,31 +7,74 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-from qtpy.QtWidgets import (
-    QApplication,
-    QGraphicsView,
-    QGraphicsScene,
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QSpinBox,
-    QDoubleSpinBox,
-    QComboBox,
-    QCheckBox,
-    QPushButton,
-    QHeaderView,
-    QLabel,
-    QTreeWidget,
-    QTreeWidgetItem,
-    QGraphicsEllipseItem,
-    QGraphicsLineItem,
-    QAbstractItemView,
-    QLineEdit,
-    QColorDialog,
-)
-from qtpy.QtGui import QPainter, QBrush, QPen, QColor, QPolygonF, QPainterPath
-from qtpy.QtCore import Qt, QTimer, QPointF, QRectF
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtWidgets import (
+        QApplication,
+        QMainWindow,
+        QWidget,
+        QVBoxLayout,
+        QHBoxLayout,
+        QSpinBox,
+        QDoubleSpinBox,
+        QComboBox,
+        QCheckBox,
+        QPushButton,
+        QHeaderView,
+        QLabel,
+        QTreeWidget,
+        QTreeWidgetItem,
+        QGraphicsEllipseItem,
+        QGraphicsLineItem,
+        QAbstractItemView,
+        QLineEdit,
+        QColorDialog,
+        QGraphicsView,
+        QGraphicsScene,
+    )
+    from PySide6.QtGui import (
+        QPainter,
+        QBrush,
+        QPen,
+        QColor,
+        QPolygonF,
+        QPainterPath,
+    )
+    from PySide6.QtCore import QTimer, QPointF, QRectF, Qt
+else:
+    from qtpy.QtWidgets import (
+        QApplication,
+        QMainWindow,
+        QWidget,
+        QVBoxLayout,
+        QHBoxLayout,
+        QSpinBox,
+        QDoubleSpinBox,
+        QComboBox,
+        QCheckBox,
+        QPushButton,
+        QHeaderView,
+        QLabel,
+        QTreeWidget,
+        QTreeWidgetItem,
+        QGraphicsEllipseItem,
+        QGraphicsLineItem,
+        QAbstractItemView,
+        QLineEdit,
+        QColorDialog,
+        QGraphicsView,
+        QGraphicsScene,
+    )
+    from qtpy.QtGui import (
+        QPainter,
+        QBrush,
+        QPen,
+        QColor,
+        QPolygonF,
+        QPainterPath,
+    )
+    from qtpy.QtCore import QTimer, QPointF, QRectF, Qt
 
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -269,8 +312,8 @@ class DemoApp(QMainWindow):
 
         # 4. Setup View Dock
         self.view = QGraphicsView(self.scene)
-        self.view.setRenderHint(QPainter.Antialiasing)
-        self.view.setDragMode(QGraphicsView.ScrollHandDrag)
+        self.view.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.view.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.view.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.view.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
 
@@ -283,20 +326,17 @@ class DemoApp(QMainWindow):
         # 5. Initialize Polygon State
         self.polygon_handles = []
         self.polygon_edges = []
-        self.heatmap_polygon = QPolygonF(
-            [
-                QPointF(-450, -330),
-                QPointF(-300, -330),
-                QPointF(-300, -250),
-                QPointF(-150, -250),
-                QPointF(-150, -300),
-                QPointF(150, -300),
-                QPointF(150, -250),
-                QPointF(450, -250),
-                QPointF(450, 250),
-                QPointF(-450, 250),
-            ]
-        )
+        self.heatmap_polygon = QPolygonF()
+        self.heatmap_polygon.append(QPointF(-450, -330))
+        self.heatmap_polygon.append(QPointF(-300, -330))
+        self.heatmap_polygon.append(QPointF(-300, -250))
+        self.heatmap_polygon.append(QPointF(-150, -250))
+        self.heatmap_polygon.append(QPointF(-150, -300))
+        self.heatmap_polygon.append(QPointF(150, -300))
+        self.heatmap_polygon.append(QPointF(150, -250))
+        self.heatmap_polygon.append(QPointF(450, -250))
+        self.heatmap_polygon.append(QPointF(450, 250))
+        self.heatmap_polygon.append(QPointF(-450, 250))
         self.update_heatmap_polygon()
         self.toggle_polygon_handles(False)
 
@@ -765,7 +805,12 @@ class DemoApp(QMainWindow):
             self.polygon_handles.append(handle)
 
     def on_handle_moved(self, index, new_pos):
-        self.heatmap_polygon[index] = new_pos
+        # QPolygonF modification workaround for PySide6
+        points = [
+            self.heatmap_polygon.at(i) for i in range(self.heatmap_polygon.count())
+        ]
+        points[index] = new_pos
+        self.heatmap_polygon = QPolygonF(points)
         self.heatmap_layer.set_boundary_shape(self.heatmap_polygon)
         count = self.heatmap_polygon.count()
         edge1 = self.polygon_edges[index]

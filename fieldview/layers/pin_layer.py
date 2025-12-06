@@ -1,6 +1,15 @@
-from qtpy.QtGui import QPixmap
-from qtpy.QtCore import QRectF, QPointF, Qt
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QPixmap, QPainter
+    from PySide6.QtCore import QRectF, QPointF, Qt
+    from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget
+else:
+    from qtpy.QtGui import QPixmap, QPainter
+    from qtpy.QtCore import QRectF, QPointF, Qt
+    from qtpy.QtWidgets import QStyleOptionGraphicsItem, QWidget
 from fieldview.layers.data_layer import DataLayer
+from typing import Optional
 
 
 class PinLayer(DataLayer):
@@ -21,7 +30,12 @@ class PinLayer(DataLayer):
         self._icon = icon
         self.update_layer()
 
-    def paint(self, painter, option, widget):
+    def paint(
+        self,
+        painter: "QPainter",
+        option: "QStyleOptionGraphicsItem",
+        widget: Optional["QWidget"] = None,
+    ) -> None:
         points, _, _ = self.get_valid_data()
 
         if self._icon:
@@ -33,7 +47,7 @@ class PinLayer(DataLayer):
         else:
             # Default: Black dot
             painter.setBrush(Qt.GlobalColor.black)
-            painter.setPen(Qt.NoPen)
+            painter.setPen(Qt.PenStyle.NoPen)
             r = 3  # Radius
             for x, y in points:
                 painter.drawEllipse(QPointF(x, y), r, r)

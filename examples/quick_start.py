@@ -1,6 +1,11 @@
 import sys
 import os
-from qtpy.QtWidgets import QApplication
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtWidgets import QApplication
+else:
+    from qtpy.QtWidgets import QApplication
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from fieldview import FieldView

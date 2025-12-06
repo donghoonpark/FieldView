@@ -1,9 +1,15 @@
-from qtpy.QtGui import QPainter, QColor, QFont, QFontMetrics, QFontDatabase
-from qtpy.QtCore import Qt, QRectF, QPointF
-from qtpy.QtWidgets import QStyleOptionGraphicsItem, QWidget
+from typing import TYPE_CHECKING, Optional, List, Dict, Tuple, Set, Union
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QPainter, QColor, QFont, QFontMetrics, QFontDatabase
+    from PySide6.QtCore import Qt, QRectF, QPointF
+    from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget
+else:
+    from qtpy.QtGui import QPainter, QColor, QFont, QFontMetrics, QFontDatabase
+    from qtpy.QtCore import Qt, QRectF, QPointF
+    from qtpy.QtWidgets import QStyleOptionGraphicsItem, QWidget
 import os
 import numpy as np
-from typing import Optional, List, Dict, Set, Union
 from fieldview.layers.data_layer import DataLayer
 
 
@@ -219,8 +225,9 @@ class TextLayer(DataLayer):
                 chosen_rect = QRectF(rect)
                 chosen_rect.moveCenter(QPointF(x, y))
 
-            layout[i] = chosen_rect
-            placed_rects.append(chosen_rect)
+            if chosen_rect is not None:
+                layout[i] = chosen_rect
+                placed_rects.append(chosen_rect)
 
         return layout
 

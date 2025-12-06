@@ -1,4 +1,11 @@
-from qtpy.QtGui import QFont
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QFont
+    from PySide6.QtWidgets import QStyleOptionGraphicsItem
+else:
+    from qtpy.QtGui import QFont
+    from qtpy.QtWidgets import QStyleOptionGraphicsItem
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.text_layer import ValueLayer, LabelLayer
 
@@ -58,7 +65,8 @@ def test_highlighting_uses_original_indices_with_exclusions(qtbot, monkeypatch):
         return "recorded"
 
     monkeypatch.setattr(layer, "_get_text", record_get_text)
-    layer.paint(painter, None, None)
+    option = QStyleOptionGraphicsItem()
+    layer.paint(painter, option, None)
     painter.end()
 
     assert set(recorded_indices) == {0, 2}

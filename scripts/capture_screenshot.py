@@ -15,9 +15,16 @@ os.environ["QT_API"] = "pyside6"
 # Add project root to path BEFORE importing fieldview or qtpy
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from qtpy.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
-from qtpy.QtGui import QImage, QPainter, QColor
-from qtpy.QtCore import Qt, QTimer
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
+    from PySide6.QtGui import QImage, QPainter, QColor
+    from PySide6.QtCore import QTimer, Qt
+else:
+    from qtpy.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
+    from qtpy.QtGui import QImage, QPainter, QColor
+    from qtpy.QtCore import QTimer, Qt
 
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.heatmap_layer import HeatmapLayer
@@ -59,7 +66,9 @@ def capture():
 
     # 3. Setup Scene
     scene = QGraphicsScene(0, 0, 959, 593)
-    scene.setBackgroundBrush(Qt.white)  # Solid white background by user request
+    scene.setBackgroundBrush(
+        Qt.GlobalColor.white
+    )  # Solid white background by user request
 
     # 4. Layers
     # SVG Map

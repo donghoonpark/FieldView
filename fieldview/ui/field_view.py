@@ -1,6 +1,13 @@
-from qtpy.QtWidgets import QGraphicsView, QGraphicsScene
-from qtpy.QtCore import Qt
-from qtpy.QtGui import QColor, QPainter
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtWidgets import QGraphicsView, QGraphicsScene
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QColor, QPainter
+else:
+    from qtpy.QtWidgets import QGraphicsView, QGraphicsScene
+    from qtpy.QtCore import Qt
+    from qtpy.QtGui import QColor, QPainter
 
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.heatmap_layer import HeatmapLayer
@@ -19,13 +26,13 @@ class FieldView(QGraphicsView):
         super().__init__(parent)
 
         # Core components
-        self.scene = QGraphicsScene(self)
-        self.setScene(self.scene)
+        self._scene = QGraphicsScene(self)
+        self.setScene(self._scene)
         self.data_container = DataContainer()
 
         # View settings
-        self.setRenderHint(QPainter.Antialiasing)
-        self.setDragMode(QGraphicsView.ScrollHandDrag)
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setBackgroundBrush(QColor(30, 30, 30))
@@ -42,7 +49,7 @@ class FieldView(QGraphicsView):
         layer = HeatmapLayer(self.data_container)
         layer.setOpacity(opacity)
         layer.setZValue(z_value)
-        self.scene.addItem(layer)
+        self._scene.addItem(layer)
         self.layers["heatmap"] = layer
         return layer
 
@@ -51,7 +58,7 @@ class FieldView(QGraphicsView):
         layer = SvgLayer()
         layer.load_svg(file_path)
         layer.setZValue(z_value)
-        self.scene.addItem(layer)
+        self._scene.addItem(layer)
         self.layers["svg"] = layer
         return layer
 
@@ -59,7 +66,7 @@ class FieldView(QGraphicsView):
         """Adds a pin layer for data points."""
         layer = PinLayer(self.data_container)
         layer.setZValue(z_value)
-        self.scene.addItem(layer)
+        self._scene.addItem(layer)
         self.layers["pin"] = layer
         return layer
 
@@ -67,7 +74,7 @@ class FieldView(QGraphicsView):
         """Adds a layer displaying value text."""
         layer = ValueLayer(self.data_container)
         layer.setZValue(z_value)
-        self.scene.addItem(layer)
+        self._scene.addItem(layer)
         self.layers["value"] = layer
         return layer
 
@@ -75,11 +82,11 @@ class FieldView(QGraphicsView):
         """Adds a layer displaying label text."""
         layer = LabelLayer(self.data_container)
         layer.setZValue(z_value)
-        self.scene.addItem(layer)
+        self._scene.addItem(layer)
         self.layers["label"] = layer
         return layer
 
     def fit_to_scene(self):
         """Fits the view to the scene content."""
-        self.scene.setSceneRect(self.scene.itemsBoundingRect())
-        self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        self._scene.setSceneRect(self._scene.itemsBoundingRect())
+        self.fitInView(self._scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)

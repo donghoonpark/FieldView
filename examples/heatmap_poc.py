@@ -3,15 +3,34 @@ import time
 import numpy as np
 from scipy.interpolate import RBFInterpolator, LinearNDInterpolator
 from scipy.spatial import cKDTree
-from qtpy.QtWidgets import (
-    QApplication,
-    QWidget,
-    QVBoxLayout,
-    QPushButton,
-    QLabel,
-)
-from qtpy.QtGui import QImage, QColor, QPainter
-from qtpy.QtCore import Qt, QTimer, QPoint
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtWidgets import (
+        QApplication,
+        QMainWindow,
+        QGraphicsView,
+        QGraphicsScene,
+        QWidget,
+        QVBoxLayout,
+        QPushButton,
+        QLabel,
+    )
+    from PySide6.QtGui import QPainter, QColor, QPolygonF, QImage
+    from PySide6.QtCore import Qt, QTimer, QPoint
+else:
+    from qtpy.QtWidgets import (
+        QApplication,
+        QMainWindow,
+        QGraphicsView,
+        QGraphicsScene,
+        QWidget,
+        QVBoxLayout,
+        QPushButton,
+        QLabel,
+    )
+    from qtpy.QtGui import QPainter, QColor, QPolygonF, QImage
+    from qtpy.QtCore import Qt, QTimer, QPoint
 
 
 def generate_data(n_points=25, radius=150):

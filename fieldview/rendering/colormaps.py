@@ -1,6 +1,11 @@
-from qtpy.QtGui import QColor
+from typing import TYPE_CHECKING, List, Tuple, Dict, Literal, Union, Optional
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QColor
+else:
+    from qtpy.QtGui import QColor
 import numpy as np
-from typing import List, Tuple, Dict, Literal, Union, Optional
+
 
 ColormapName = Literal["viridis", "plasma", "inferno", "magma", "coolwarm", "jet"]
 

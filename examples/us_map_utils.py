@@ -3,9 +3,14 @@ import re
 import json
 import numpy as np
 import xml.etree.ElementTree as ET
-from qtpy.QtGui import QPainterPath, QPolygonF, QPainterPathStroker
-from qtpy.QtCore import Qt
-from typing import Dict, Tuple, List
+from typing import TYPE_CHECKING, Dict, Tuple, List
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QPainterPath, QPolygonF, QPainterPathStroker
+    from PySide6.QtCore import Qt
+else:
+    from qtpy.QtGui import QPainterPath, QPolygonF, QPainterPathStroker
+    from qtpy.QtCore import Qt
 
 
 def parse_svg_path_to_qpainterpath(d_str: str) -> QPainterPath:
@@ -57,7 +62,9 @@ def parse_svg_path_to_qpainterpath(d_str: str) -> QPainterPath:
     return path
 
 
-def get_state_data(svg_path: str) -> Tuple[Dict[str, QPainterPath], Dict[str, Tuple[float, float]]]:
+def get_state_data(
+    svg_path: str,
+) -> Tuple[Dict[str, QPainterPath], Dict[str, Tuple[float, float]]]:
     """Parses the US map SVG to get state paths and centroids."""
     if not os.path.exists(svg_path):
         print(f"Error: {svg_path} not found")
@@ -109,8 +116,8 @@ def get_us_boundary(state_paths: Dict[str, QPainterPath]) -> QPainterPath:
     # 0. Merge all state paths into a single outline to remove internal borders/gaps
     stroker = QPainterPathStroker()
     stroker.setWidth(1.0)  # Small overlap to seal cracks
-    stroker.setJoinStyle(Qt.RoundJoin)
-    stroker.setCapStyle(Qt.RoundCap)
+    stroker.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    stroker.setCapStyle(Qt.PenCapStyle.RoundCap)
 
     stroke_path = stroker.createStroke(us_boundary)
     us_boundary = us_boundary.united(stroke_path)
@@ -176,7 +183,9 @@ def load_weather_data() -> Dict[str, float]:
     return real_weather_data
 
 
-def generate_us_dataset(centroids: Dict[str, Tuple[float, float]], weather_data: Dict[str, float]) -> Tuple[np.ndarray, np.ndarray]:
+def generate_us_dataset(
+    centroids: Dict[str, Tuple[float, float]], weather_data: Dict[str, float]
+) -> Tuple[np.ndarray, np.ndarray]:
     """Generates points and values arrays for the US map."""
     points = []
     values = []

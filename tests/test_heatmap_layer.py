@@ -1,7 +1,13 @@
 import pytest
 import numpy as np
-from qtpy.QtCore import QRectF
-from qtpy.QtGui import QPainterPath, QColor
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QRectF
+    from PySide6.QtGui import QPainterPath, QColor
+else:
+    from qtpy.QtCore import QRectF
+    from qtpy.QtGui import QPainterPath, QColor
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.heatmap_layer import HeatmapLayer
 

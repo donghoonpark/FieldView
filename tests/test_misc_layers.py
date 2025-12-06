@@ -1,4 +1,9 @@
-from qtpy.QtGui import QPixmap
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QPixmap
+else:
+    from qtpy.QtGui import QPixmap
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.svg_layer import SvgLayer
 from fieldview.layers.pin_layer import PinLayer

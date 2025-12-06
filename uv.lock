@@ -451,7 +451,9 @@ dev = [
     { name = "pandas", version = "2.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "pandas-stubs" },
+    { name = "pyside6" },
     { name = "pyside6-qtads" },
+    { name = "pyside6-stubs" },
     { name = "pytest" },
     { name = "pytest-qt" },
     { name = "ruff" },
@@ -476,7 +478,9 @@ dev = [
     { name = "mypy" },
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "pandas-stubs" },
+    { name = "pyside6" },
     { name = "pyside6-qtads" },
+    { name = "pyside6-stubs" },
     { name = "pytest", specifier = ">=9.0.1" },
     { name = "pytest-qt", specifier = ">=4.5.0" },
     { name = "ruff" },
@@ -1510,6 +1514,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/5f/74/5bf1b9c2df40795a3ceecd1c19b2c285878ce2faa9a8580c67ae4dbcb280/PySide6_QtAds-4.1.0.2-cp38-abi3-macosx_11_0_x86_64.whl", hash = "sha256:ada43fd4a352257fd8d61059b42352c3396634dadbe65dfa762ed4352269fb7a", size = 729188, upload-time = "2023-11-15T17:17:33.779Z" },
     { url = "https://files.pythonhosted.org/packages/04/60/622c5f60b2ee9e8377e5e6c16e684ad9495dd7a623aada5e0f8faa59afff/PySide6_QtAds-4.1.0.2-cp38-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:3532658190aa31ddcbb2e15e21a866eb638a3dfc34e562ddabb8daec89d31704", size = 783987, upload-time = "2023-11-15T17:17:35.592Z" },
     { url = "https://files.pythonhosted.org/packages/8e/20/1749225bd14071335608ff4bba485e0b66db7cccf08d8e21a04eecb8ed74/PySide6_QtAds-4.1.0.2-cp38-abi3-win_amd64.whl", hash = "sha256:c84ddbf19bbc7c8cd4af6d50d0a96b9711933be134fe6131604591d7a8711f33", size = 453184, upload-time = "2023-11-15T17:17:37.006Z" },
+]
+
+[[package]]
+name = "pyside6-stubs"
+version = "6.7.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "mypy" },
+    { name = "pyside6" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/72/2b/d2a3fdb212475682b11e8b6330f2cada60dcbbaf151f73f86844b11d1db6/pyside6_stubs-6.7.3.0.tar.gz", hash = "sha256:db8def2bb9c74091bfa2a4df7610d3ea344ecd00ebd4283995eeb5fda8383603", size = 509931, upload-time = "2025-03-04T05:49:15.755Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e9/2e/3488fa3baca56ff494b9502424675f5b14b11e966eb74d5adaf1811cd651/pyside6_stubs-6.7.3.0-py3-none-any.whl", hash = "sha256:7a2ef0d7486939f240e745829f80887ec3eab280e52c9930d64b48b3de95042a", size = 550616, upload-time = "2025-03-04T05:49:13.154Z" },
 ]
 
 [[package]]

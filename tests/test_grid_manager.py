@@ -1,6 +1,11 @@
 import numpy as np
 from qtpy.QtGui import QPolygonF
-from qtpy.QtCore import QRectF
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QRectF
+else:
+    from qtpy.QtCore import QRectF
 from fieldview.utils.grid_manager import InterpolatorCache
 
 

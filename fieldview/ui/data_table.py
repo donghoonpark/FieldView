@@ -1,6 +1,16 @@
 from qtpy.QtWidgets import QTableView, QHeaderView, QMenu, QAction
-from qtpy.QtCore import Qt, QAbstractTableModel, QModelIndex
-from typing import List, Set, Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import (
+        Qt,
+        QAbstractTableModel,
+        QModelIndex,
+        QPersistentModelIndex,
+    )
+else:
+    from qtpy.QtCore import Qt, QAbstractTableModel, QModelIndex, QPersistentModelIndex
+from typing import List, Set, Any, Union
 from fieldview.core.data_container import DataContainer
 
 
@@ -20,13 +30,21 @@ class PointTableModel(QAbstractTableModel):
         self._headers = ["Highlight", "Exclude", "X", "Y", "Value", "Label"]
         self._visible_columns = [True] * len(self._headers)
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def rowCount(
+        self, parent: Union["QModelIndex", "QPersistentModelIndex"] = QModelIndex()
+    ) -> int:
         return len(self._data_container.points)
 
-    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def columnCount(
+        self, parent: Union["QModelIndex", "QPersistentModelIndex"] = QModelIndex()
+    ) -> int:
         return len(self._headers)
 
-    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
+    def data(
+        self,
+        index: Union["QModelIndex", "QPersistentModelIndex"],
+        role: int = Qt.ItemDataRole.DisplayRole,
+    ) -> Any:
         if not index.isValid():
             return None
         row, col = index.row(), index.column()
@@ -57,7 +75,10 @@ class PointTableModel(QAbstractTableModel):
         return None
 
     def setData(
-        self, index: QModelIndex, value: Any, role: int = Qt.ItemDataRole.EditRole
+        self,
+        index: Union["QModelIndex", "QPersistentModelIndex"],
+        value: Any,
+        role: int = Qt.ItemDataRole.EditRole,
     ) -> bool:
         if not index.isValid():
             return False
@@ -112,7 +133,9 @@ class PointTableModel(QAbstractTableModel):
             return self._headers[section]
         return None
 
-    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
+    def flags(
+        self, index: Union["QModelIndex", "QPersistentModelIndex"]
+    ) -> Qt.ItemFlag:
         flags = super().flags(index)
         if index.column() in (0, 1):
             flags |= Qt.ItemFlag.ItemIsUserCheckable
@@ -167,7 +190,7 @@ class DataTable(QTableView):
         menu.exec(header.mapToGlobal(pos))
 
     def _toggle_column(self):
-        action = self.sender()
+        action: QAction = self.sender()  # type: ignore
         col_idx = action.data()
         if action.isChecked():
             self.showColumn(col_idx)

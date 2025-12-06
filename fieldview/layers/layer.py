@@ -1,5 +1,15 @@
-from qtpy.QtWidgets import QGraphicsObject
-from qtpy.QtCore import QRectF
+from qtpy.QtWidgets import QGraphicsObject, QStyleOptionGraphicsItem, QWidget
+from qtpy.QtGui import QPainter
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QRectF
+    from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget
+    from PySide6.QtGui import QPainter
+else:
+    from qtpy.QtCore import QRectF
+    from qtpy.QtWidgets import QStyleOptionGraphicsItem, QWidget
+    from qtpy.QtGui import QPainter
 
 
 class Layer(QGraphicsObject):
@@ -22,7 +32,12 @@ class Layer(QGraphicsObject):
         self.prepareGeometryChange()
         self.update()
 
-    def paint(self, painter, option, widget):
+    def paint(
+        self,
+        painter: "QPainter",
+        option: "QStyleOptionGraphicsItem",
+        widget: Optional["QWidget"] = None,
+    ) -> None:
         """
         Default paint implementation. Subclasses should override this.
         """

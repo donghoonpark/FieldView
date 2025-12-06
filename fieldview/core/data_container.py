@@ -1,5 +1,10 @@
 import numpy as np
-from qtpy.QtCore import QObject, Signal
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QObject, Signal
+else:
+    from qtpy.QtCore import QObject, Signal
 
 
 class DataContainer(QObject):

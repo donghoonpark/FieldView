@@ -1,6 +1,26 @@
+
 from qtpy.QtCore import Signal
 from qtpy.QtGui import QPainter, QLinearGradient, QColor
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDoubleSpinBox
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtWidgets import (
+        QWidget,
+        QVBoxLayout,
+        QHBoxLayout,
+        QLabel,
+        QDoubleSpinBox,
+    )
+    from PySide6.QtCore import Signal, Qt
+else:
+    from qtpy.QtWidgets import (
+        QWidget,
+        QVBoxLayout,
+        QHBoxLayout,
+        QLabel,
+        QDoubleSpinBox,
+    )
+    from qtpy.QtCore import Signal, Qt
 
 from fieldview.rendering.colormaps import get_colormap
 

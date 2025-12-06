@@ -1,4 +1,9 @@
-from qtpy.QtCore import QRectF
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtCore import QRectF
+else:
+    from qtpy.QtCore import QRectF
 import numpy as np
 from fieldview.layers.layer import Layer
 from fieldview.core.data_container import DataContainer

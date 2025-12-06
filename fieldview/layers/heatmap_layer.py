@@ -1,9 +1,17 @@
 import numpy as np
 import time
 from fieldview.utils.grid_manager import InterpolatorCache
-from qtpy.QtGui import QImage, QPainter, QPolygonF, QPainterPath
-from qtpy.QtCore import QTimer, QRectF, Signal
-from typing import Optional, Literal, Union
+from typing import TYPE_CHECKING, Optional, Literal, Union
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QImage, QPainter, QPolygonF, QPainterPath
+    from PySide6.QtCore import QTimer, QRectF, Signal
+    from PySide6.QtWidgets import QStyleOptionGraphicsItem, QWidget
+else:
+    from qtpy.QtGui import QImage, QPainter, QPolygonF, QPainterPath
+    from qtpy.QtCore import QTimer, QRectF, Signal
+    from qtpy.QtWidgets import QStyleOptionGraphicsItem, QWidget
+
 from fieldview.rendering.colormaps import ColormapName, get_colormap
 from fieldview.layers.data_layer import DataLayer
 
@@ -18,7 +26,6 @@ KernelType = Literal[
     "inverse_multiquadric",
     "",
 ]
-
 
 
 # Tiered grid sizes to prevent cache thrashing
@@ -480,7 +487,12 @@ class HeatmapLayer(DataLayer):
         # and 'buffer' might be garbage collected after this function returns.
         return image.copy()
 
-    def paint(self, painter, option, widget):
+    def paint(
+        self,
+        painter: "QPainter",
+        option: "QStyleOptionGraphicsItem",
+        widget: Optional["QWidget"] = None,
+    ) -> None:
         if self._cached_image:
             # Clip to polygon
             path = QPainterPath()
