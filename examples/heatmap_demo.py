@@ -2,7 +2,7 @@ import sys
 import os
 import numpy as np
 import pandas as pd
-from PySide6.QtWidgets import (
+from qtpy.QtWidgets import (
     QApplication,
     QMainWindow,
     QGraphicsView,
@@ -243,7 +243,7 @@ class HeatmapDemo(QMainWindow):
         self.status_label.setText(f"Data Points: {count}")
 
 if __name__ == "__main__":
-    from PySide6.QtGui import QPainter # Import here to avoid circular dependency issues if any
+    from qtpy.QtGui import QPainter # Import here to avoid circular dependency issues if any
     app = QApplication(sys.argv)
     window = HeatmapDemo()
     window.show()
