@@ -17,8 +17,8 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QComboBox,
 )
-from PySide6.QtGui import QPainter, QPolygonF
-from PySide6.QtCore import Qt, QPointF
+from qtpy.QtGui import QPainter, QPolygonF
+from qtpy.QtCore import Qt, QPointF
 
 # Add project root to sys.path to import fieldview modules
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))

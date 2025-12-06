@@ -1,11 +1,12 @@
+```python
 import sys
 import time
 import numpy as np
 from scipy.interpolate import RBFInterpolator, LinearNDInterpolator
 from scipy.spatial import cKDTree
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
-from PySide6.QtGui import QImage, QPixmap, QPainter, QColor
-from PySide6.QtCore import Qt, QPoint, QTimer
+from qtpy.QtWidgets import QApplication, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
+from qtpy.QtGui import QImage, QPixmap, QColor, QPainter
+from qtpy.QtCore import Qt, QTimer, QPointF, QPoint
 
 def generate_data(n_points=25, radius=150):
     """Generates random data points within a circle."""

@@ -1,5 +1,5 @@
-from PySide6.QtGui import QFont, QColor, QFontDatabase
-from PySide6.QtCore import Qt, QRectF, QPointF
+from qtpy.QtGui import QPainter, QColor, QFont, QFontMetrics, QFontDatabase
+from qtpy.QtCore import Qt, QRectF, QPointF
 import os
 from fieldview.layers.data_layer import DataLayer
 

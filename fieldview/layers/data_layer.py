@@ -1,4 +1,4 @@
-from PySide6.QtCore import QRectF
+from qtpy.QtCore import QRectF
 import numpy as np
 from fieldview.layers.layer import Layer
 from fieldview.core.data_container import DataContainer

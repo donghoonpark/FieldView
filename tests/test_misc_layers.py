@@ -1,7 +1,8 @@
 import pytest
 import os
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import QByteArray, QPointF
+from qtpy.QtCore import QPointF, QRectF
+from qtpy.QtGui import QPixmap, QPainter, QColor
+from qtpy.QtSvgWidgets import QGraphicsSvgItem
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.svg_layer import SvgLayer
 from fieldview.layers.pin_layer import PinLayer

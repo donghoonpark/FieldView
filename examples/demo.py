@@ -10,14 +10,13 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import numpy as np
 import pandas as pd
-from PySide6.QtWidgets import (QApplication, QMainWindow, QGraphicsView, QGraphicsScene, 
-                               QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
-                               QCheckBox, QGroupBox, QSlider, QComboBox, QTableView, 
-                               QHeaderView, QAbstractItemView, QGraphicsEllipseItem, QDockWidget, 
-                               QGraphicsLineItem, QTreeWidget, QTreeWidgetItem, QDoubleSpinBox, 
-                               QColorDialog, QSpinBox, QFrame)
-from PySide6.QtGui import QPainterPath, QPainter, QPolygonF, QColor, QPixmap, QBrush, QPen, QStandardItemModel, QStandardItem, QFont
-from PySide6.QtCore import Qt, QPointF, QAbstractTableModel, QModelIndex, Signal, QRectF, QTimer
+from qtpy.QtWidgets import (QApplication, QGraphicsView, QGraphicsScene, QMainWindow, 
+                                QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, 
+                                QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, 
+                                QComboBox, QCheckBox, QPushButton, QTableWidget, 
+                                QTableWidgetItem, QHeaderView, QFileDialog, QLabel)
+from qtpy.QtGui import QPainter, QBrush, QPen, QColor, QPolygonF, QAction, QIcon, QPixmap, QStandardItemModel, QStandardItem, QFont, QPainterPath
+from qtpy.QtCore import Qt, QTimer, QPointF, QRectF, QAbstractTableModel, QModelIndex, Signal
 
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))

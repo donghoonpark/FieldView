@@ -1,6 +1,6 @@
 # FieldView
 
-**FieldView** is a high-performance Python + Qt (PySide6) library for 2D data visualization, specifically designed for handling irregular data points. It provides a robust rendering engine for heatmaps, markers, and text labels with minimal external dependencies.
+**FieldView** is a high-performance Python + Qt library for 2D data visualization, specifically designed for handling irregular data points. It uses `QtPy` to support **PySide6**, **PyQt6**, and **PyQt5**. It provides a robust rendering engine for heatmaps, markers, and text labels with minimal external dependencies.
 
 <img src="assets/quick_start.png" alt="Quick Start" width="600">
 
@@ -14,12 +14,17 @@
     *   **ValueLayer/LabelLayer**: Text rendering with collision avoidance.
     *   **PinLayer**: Marker placement.
     *   **SvgLayer**: Background floor plans or overlays.
-*   **Minimal Dependencies**: Built on `numpy`, `scipy`, and `PySide6`.
+*   **Minimal Dependencies**: Built on `numpy`, `scipy`, and `qtpy`.
 
 ## Installation
 
 ```bash
-pip install fieldview
+pip install fieldview[pyside6]  # Install with PySide6
+# OR
+pip install fieldview[pyqt6]    # Install with PyQt6
+# OR
+pip install fieldview[pyqt5]    # Install with PyQt5
+
 ```
 
 *Note: Requires Python 3.10+*
@@ -32,9 +37,9 @@ Here is a minimal example to get a heatmap up and running:
 import sys
 import os
 import numpy as np
-from PySide6.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
-from PySide6.QtGui import QPolygonF
-from PySide6.QtCore import Qt, QPointF
+from qtpy.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
+from qtpy.QtGui import QPolygonF
+from qtpy.QtCore import Qt, QPointF
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.heatmap_layer import HeatmapLayer
 from fieldview.layers.text_layer import ValueLayer

@@ -1,5 +1,6 @@
 import pytest
-from PySide6.QtGui import QFont
+from qtpy.QtCore import QPointF, QRectF
+from qtpy.QtGui import QFont, QColor
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.text_layer import ValueLayer, LabelLayer
 

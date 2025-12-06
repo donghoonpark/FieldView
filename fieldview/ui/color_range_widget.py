@@ -1,6 +1,7 @@
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QPainter, QLinearGradient, QColor
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDoubleSpinBox
+from qtpy.QtCore import Qt, Signal
+from qtpy.QtGui import QPainter, QLinearGradient, QColor, QBrush, QPen
+from qtpy.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                                QDoubleSpinBox, QSlider, QComboBox)
 
 from fieldview.rendering.colormaps import get_colormap
 

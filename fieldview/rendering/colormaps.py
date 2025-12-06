@@ -1,4 +1,4 @@
-from PySide6.QtGui import QColor
+from qtpy.QtGui import QColor
 import numpy as np
 from typing import List, Tuple, Dict, Literal, Union
 

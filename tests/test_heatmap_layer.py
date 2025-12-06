@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
-from PySide6.QtCore import QTimer, QPointF, QRectF
-from PySide6.QtGui import QPolygonF, QPainterPath, QColor
+from qtpy.QtCore import QTimer, QPointF, QRectF
+from qtpy.QtGui import QPolygonF, QPainterPath, QColor
 from fieldview.core.data_container import DataContainer
 from fieldview.layers.heatmap_layer import HeatmapLayer
 

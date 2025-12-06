@@ -1,8 +1,8 @@
 import numpy as np
 import time
 from fieldview.utils.grid_manager import InterpolatorCache
-from PySide6.QtGui import QImage, QPainter, QColor, QPolygonF, QPainterPath
-from PySide6.QtCore import Qt, QTimer, QRectF, QPointF, Signal
+from qtpy.QtGui import QImage, QPainter, QColor, QPolygonF, QPainterPath
+from qtpy.QtCore import Qt, QTimer, QRectF, QPointF, Signal
 from typing import Optional, Tuple, List, Literal, Union
 from fieldview.rendering.colormaps import ColormapName
 
