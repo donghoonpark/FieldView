@@ -1,5 +1,10 @@
 # FieldView
 
+[![Quality](https://github.com/donghoonpark/FieldView/actions/workflows/quality.yml/badge.svg)](https://github.com/donghoonpark/FieldView/actions/workflows/quality.yml)
+[![Tests](https://github.com/donghoonpark/FieldView/actions/workflows/tests.yml/badge.svg)](https://github.com/donghoonpark/FieldView/actions/workflows/tests.yml)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
+
 **FieldView** is a high-performance Python library for 2D data visualization, built on top of the Qt framework. It is designed to efficiently render irregular data points using heatmaps, markers, and text labels.
 
 FieldView leverages `QtPy` to support **PySide6**, **PyQt6**, and **PyQt5**, providing a flexible and robust solution for integrating advanced visualizations into Python desktop applications.
