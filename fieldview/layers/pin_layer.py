@@ -1,5 +1,5 @@
-from PySide6.QtGui import QPixmap, QPainter
-from PySide6.QtCore import QPointF, Qt, QRectF
+from qtpy.QtGui import QPixmap, QPainter, QColor, QPen, QBrush
+from qtpy.QtCore import QRectF, QPointF, Qt
 from fieldview.layers.data_layer import DataLayer
 
 class PinLayer(DataLayer):

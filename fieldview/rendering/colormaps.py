@@ -1,21 +1,24 @@
-from PySide6.QtGui import QColor
+from qtpy.QtGui import QColor
 import numpy as np
+from typing import List, Tuple, Dict, Literal, Union
+
+ColormapName = Literal["viridis", "plasma", "inferno", "magma", "coolwarm", "jet"]
 
 class Colormap:
     """
     Simple colormap implementation using linear interpolation of stops.
     """
-    def __init__(self, name, stops):
+    def __init__(self, name: str, stops: List[Tuple[float, str]]):
         """
         Args:
             name (str): Name of the colormap.
             stops (list): List of (position, color_hex) tuples. 
                           Position is 0.0 to 1.0.
         """
-        self.name = name
-        self.stops = sorted(stops, key=lambda x: x[0])
+        self.name: str = name
+        self.stops: List[Tuple[float, str]] = sorted(stops, key=lambda x: x[0])
         
-    def map(self, value):
+    def map(self, value: float) -> QColor:
         """
         Maps a value (0.0 to 1.0) to a QColor.
         """
@@ -40,7 +43,7 @@ class Colormap:
         # Fallback (should cover 0.0 to 1.0 if stops are correct)
         return QColor(self.stops[-1][1])
 
-    def get_lut(self, size=256):
+    def get_lut(self, size: int = 256) -> np.ndarray:
         """
         Returns a numpy array of shape (size,) containing uint32 ARGB values.
         """
@@ -84,7 +87,7 @@ JET = Colormap("jet", [
     (0.0, "#000080"), (0.125, "#0000ff"), (0.375, "#00ffff"), (0.625, "#ffff00"), (0.875, "#ff0000"), (1.0, "#800000")
 ])
 
-COLORMAPS = {
+COLORMAPS: Dict[str, Colormap] = {
     "viridis": VIRIDIS,
     "plasma": PLASMA,
     "inferno": INFERNO,
@@ -93,5 +96,5 @@ COLORMAPS = {
     "jet": JET
 }
 
-def get_colormap(name):
+def get_colormap(name: Union[ColormapName, str]) -> Colormap:
     return COLORMAPS.get(name.lower(), VIRIDIS)

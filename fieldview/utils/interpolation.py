@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.interpolate import RBFInterpolator
 from scipy.spatial import cKDTree
+from typing import Optional, Tuple, List, Literal, Union
+
+KernelType = Literal["thin_plate_spline", "linear", "cubic", "quintic", "gaussian", "multiquadric", "inverse_multiquadric"]
 
 class BoundaryPointGenerator:
     """
@@ -13,7 +16,7 @@ class BoundaryPointGenerator:
         self._idw_weights = None
         self._is_fitted = False
 
-    def fit(self, points, boundary_shape, target_segment_length=None):
+    def fit(self, points: np.ndarray, boundary_shape, target_segment_length: Optional[float] = None):
         """
         Generates boundary points and computes IDW weights.
         """
@@ -43,7 +46,7 @@ class BoundaryPointGenerator:
         
         self._is_fitted = True
 
-    def transform(self, values):
+    def transform(self, values: np.ndarray) -> np.ndarray:
         """
         Computes values for boundary points using pre-computed weights.
         """
@@ -60,12 +63,12 @@ class BoundaryPointGenerator:
         
         return boundary_values
 
-    def get_boundary_points(self):
+    def get_boundary_points(self) -> np.ndarray:
         if not self._is_fitted:
             return np.empty((0, 2))
         return self._boundary_points
 
-    def _generate_points(self, points, boundary_shape, target_segment_length=None):
+    def _generate_points(self, points: np.ndarray, boundary_shape, target_segment_length: Optional[float] = None) -> np.ndarray:
         # Adaptive Sampling
         if target_segment_length is None:
             tree = cKDTree(points)
@@ -104,13 +107,13 @@ class FastRBFInterpolator:
     RBF Interpolator that pre-computes the interpolation matrix.
     Prediction is a simple matrix multiplication: Z = L @ values
     """
-    def __init__(self, neighbors=30, kernel='thin_plate_spline'):
+    def __init__(self, neighbors: int = 30, kernel: KernelType = 'thin_plate_spline'):
         self.neighbors = neighbors
         self.kernel = kernel
         self._matrix = None
         self._is_fitted = False
 
-    def fit(self, source_points, grid_points):
+    def fit(self, source_points: np.ndarray, grid_points: np.ndarray):
         """
         Computes the linear operator matrix L.
         """
@@ -148,7 +151,7 @@ class FastRBFInterpolator:
             print(f"FastRBF fit failed: {e}")
             self._is_fitted = False
 
-    def predict(self, values):
+    def predict(self, values: np.ndarray) -> Optional[np.ndarray]:
         """
         Predicts values on the grid.
         values shape: (n_source,)

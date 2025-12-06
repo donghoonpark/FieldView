@@ -1,8 +1,12 @@
 import numpy as np
 import time
 from fieldview.utils.grid_manager import InterpolatorCache
-from PySide6.QtGui import QImage, QPainter, QColor, QPolygonF, QPainterPath
-from PySide6.QtCore import Qt, QTimer, QRectF, QPointF, Signal
+from qtpy.QtGui import QImage, QPainter, QColor, QPolygonF, QPainterPath
+from qtpy.QtCore import Qt, QTimer, QRectF, QPointF, Signal
+from typing import Optional, Tuple, List, Literal, Union
+from fieldview.rendering.colormaps import ColormapName
+
+QualityLevel = Literal['very low', 'low', 'medium', 'high', 'very high', 'adaptive']
 
 from fieldview.layers.data_layer import DataLayer
 
@@ -33,6 +37,8 @@ class HeatmapLayer(DataLayer):
         self._target_render_time = 100 # Default High (100ms)
         self._hq_delay = 300 # ms
         self._colormap = get_colormap("viridis")
+        self._color_min = None
+        self._color_max = None
         
         # Initialize with empty shape, will be set by on_data_changed if data exists
         # or user can set it manually.
@@ -58,13 +64,44 @@ class HeatmapLayer(DataLayer):
         self.on_data_changed()
 
     @property
-    def colormap(self):
+    def colormap(self) -> str:
         return self._colormap.name
 
     @colormap.setter
-    def colormap(self, name):
+    def colormap(self, name: Union[ColormapName, str]):
         self._colormap = get_colormap(name)
         self.update_layer()
+
+    @property
+    def color_min(self):
+        return self._color_min
+
+    @property
+    def color_max(self):
+        return self._color_max
+
+    @property
+    def color_range(self):
+        return self._color_min, self._color_max
+
+    def set_color_range(self, color_min: Optional[float] = None, color_max: Optional[float] = None):
+        """
+        Sets explicit normalization bounds for the heatmap colors.
+
+        Args:
+            color_min (float|None): Minimum value mapped to the start of the colormap.
+            color_max (float|None): Maximum value mapped to the end of the colormap.
+
+        If either bound is ``None`` the corresponding limit is inferred from the data.
+        Raises ``ValueError`` if both bounds are provided and ``color_min`` is not
+        strictly smaller than ``color_max``.
+        """
+        if color_min is not None and color_max is not None and color_min >= color_max:
+            raise ValueError("color_min must be smaller than color_max")
+
+        self._color_min = float(color_min) if color_min is not None else None
+        self._color_max = float(color_max) if color_max is not None else None
+        self.on_data_changed()
 
     @property
     def target_render_time(self):
@@ -77,7 +114,7 @@ class HeatmapLayer(DataLayer):
         self.on_data_changed()
 
     @property
-    def quality(self):
+    def quality(self) -> QualityLevel:
         if self._is_adaptive: return 'adaptive'
         if self._idle_grid_size <= 50: return 'very low'
         if self._idle_grid_size <= 100: return 'low'
@@ -86,7 +123,7 @@ class HeatmapLayer(DataLayer):
         return 'very high'
 
     @quality.setter
-    def quality(self, value):
+    def quality(self, value: Union[QualityLevel, str, int]):
         if isinstance(value, str):
             value = value.lower()
         
@@ -120,7 +157,7 @@ class HeatmapLayer(DataLayer):
         
         self.on_data_changed()
 
-    def set_boundary_shape(self, shape):
+    def set_boundary_shape(self, shape: Union[QPolygonF, QRectF, QPainterPath]):
         """
         Sets the boundary polygon for the heatmap.
         Accepts QPolygonF, QRectF, or QPainterPath.
@@ -193,7 +230,7 @@ class HeatmapLayer(DataLayer):
         self._generate_heatmap(method='rbf', neighbors=self._neighbors, grid_size=self._idle_grid_size)
         self.update()
 
-    def _generate_heatmap(self, method='rbf', neighbors=30, grid_size=None):
+    def _generate_heatmap(self, method: str = 'rbf', neighbors: int = 30, grid_size: Optional[int] = None):
         """
         Generates the heatmap image using cached interpolators.
         """
@@ -304,7 +341,7 @@ class HeatmapLayer(DataLayer):
 
 
 
-    def _array_to_qimage(self, Z):
+    def _array_to_qimage(self, Z: np.ndarray) -> QImage:
         """
         Converts 2D array Z to QImage using vectorized operations.
         """
@@ -312,20 +349,25 @@ class HeatmapLayer(DataLayer):
         
         # 1. Normalize Z to 0-255 indices
         Z_norm = np.nan_to_num(Z, nan=-1)
-        max_val = np.nanmax(Z_norm)
-        if max_val == 0: max_val = 1
-        
-        # Create indices array
-        # Values < 0 (NaNs) will be handled separately or mapped to 0
-        # We want -1 to stay -1 or be handled. 
-        # Let's map valid values to 0-255.
-        
+
         # Mask for transparent pixels
         mask = (Z_norm == -1)
-        
+        valid_values = Z_norm[~mask]
+
+        # Determine normalization bounds
+        if valid_values.size > 0:
+            min_val = self._color_min if self._color_min is not None else float(np.nanmin(valid_values))
+            max_val = self._color_max if self._color_max is not None else float(np.nanmax(valid_values))
+        else:
+            min_val = self._color_min if self._color_min is not None else 0.0
+            max_val = self._color_max if self._color_max is not None else 1.0
+
+        if max_val == min_val:
+            max_val = min_val + 1e-9
+
         # Normalize valid values to 0.0-1.0
-        normalized = np.clip(Z_norm / max_val, 0.0, 1.0)
-        
+        normalized = np.clip((Z_norm - min_val) / (max_val - min_val), 0.0, 1.0)
+
         # Map to 0-255 indices
         indices = (normalized * 255).astype(np.uint8)
         

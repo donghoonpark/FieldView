@@ -10,14 +10,14 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 import numpy as np
 import pandas as pd
-from PySide6.QtWidgets import (QApplication, QMainWindow, QGraphicsView, QGraphicsScene, 
-                               QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
-                               QCheckBox, QGroupBox, QSlider, QComboBox, QTableView, 
-                               QHeaderView, QAbstractItemView, QGraphicsEllipseItem, QDockWidget, 
-                               QGraphicsLineItem, QTreeWidget, QTreeWidgetItem, QDoubleSpinBox, 
-                               QColorDialog, QSpinBox, QFrame)
-from PySide6.QtGui import QPainterPath, QPainter, QPolygonF, QColor, QPixmap, QBrush, QPen, QStandardItemModel, QStandardItem, QFont
-from PySide6.QtCore import Qt, QPointF, QAbstractTableModel, QModelIndex, Signal, QRectF, QTimer
+from qtpy.QtWidgets import (QApplication, QGraphicsView, QGraphicsScene, QMainWindow, 
+                                QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, 
+                                QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox, 
+                                QComboBox, QCheckBox, QPushButton, QTableWidget, QTableView,
+                                QTableWidgetItem, QHeaderView, QFileDialog, QLabel, QTreeWidget,
+                                QTreeWidgetItem, QGraphicsEllipseItem, QGraphicsLineItem, QAbstractItemView)
+from qtpy.QtGui import QPainter, QBrush, QPen, QColor, QPolygonF, QAction, QIcon, QPixmap, QStandardItemModel, QStandardItem, QFont, QPainterPath
+from qtpy.QtCore import Qt, QTimer, QPointF, QRectF, QAbstractTableModel, QModelIndex, Signal
 
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -28,6 +28,7 @@ from fieldview.layers.text_layer import ValueLayer, LabelLayer
 from fieldview.layers.svg_layer import SvgLayer
 from fieldview.layers.pin_layer import PinLayer
 from fieldview.rendering.colormaps import COLORMAPS
+from fieldview.ui import ColorRangeControl
 from examples.generate_data import generate_dummy_data
 
 # --- Property Browser Components ---
@@ -278,7 +279,9 @@ class DemoApp(QMainWindow):
         
         # 2. Setup Layers
         self.setup_layers()
-        
+
+        self._using_auto_range = True
+
         # 3. Setup View
         self.view = QGraphicsView(self.scene)
         self.view.setRenderHint(QPainter.Antialiasing)
@@ -301,7 +304,9 @@ class DemoApp(QMainWindow):
 
         # 5. Setup Properties Dock
         self.setup_properties_dock()
-        
+
+        self.data_container.dataChanged.connect(self._handle_data_changed)
+
         # 6. Initial Data
         self.generate_data()
 
@@ -351,7 +356,21 @@ class DemoApp(QMainWindow):
         # Property Browser
         self.props = PropertyBrowser()
         layout.addWidget(self.props, stretch=1)
-        
+
+        # Color Range Controls
+        group_color = QGroupBox("Color Range")
+        layout_color = QVBoxLayout(group_color)
+
+        self.color_range_control = ColorRangeControl(self.heatmap_layer.colormap)
+        self.color_range_control.colorRangeChanged.connect(self.apply_color_range)
+        layout_color.addWidget(self.color_range_control)
+
+        btn_auto_range = QPushButton("Auto (Data Min/Max)")
+        btn_auto_range.clicked.connect(self.reset_auto_color_range)
+        layout_color.addWidget(btn_auto_range)
+
+        layout.addWidget(group_color)
+
         # Data Table
         group_data = QGroupBox("Data Points")
         layout_data = QVBoxLayout(group_data)
@@ -427,17 +446,27 @@ class DemoApp(QMainWindow):
         root = self.props.add_group("Heatmap Layer")
         self.props.add_bool_property(root, "Visible", self.heatmap_layer.isVisible(), self.heatmap_layer.setVisible)
         self.props.add_float_property(root, "Opacity", self.heatmap_layer.opacity(), self.heatmap_layer.setOpacity, step=0.05)
-        self.props.add_enum_property(root, "Colormap", self.heatmap_layer.colormap, list(COLORMAPS.keys()), 
-                                     lambda n: setattr(self.heatmap_layer, 'colormap', n))
+        self.props.add_enum_property(
+            root,
+            "Colormap",
+            self.heatmap_layer.colormap,
+            list(COLORMAPS.keys()),
+            self._set_heatmap_colormap,
+        )
         
         # Quality now maps to target render time
         self.props.add_enum_property(root, "Quality", self.heatmap_layer.quality.title(), ["Very Low", "Low", "Medium", "High", "Very High", "Adaptive"], 
                                      lambda q: setattr(self.heatmap_layer, 'quality', q))
         
-        self.props.add_enum_property(root, "Boundary Shape", "Custom Polygon", ["Custom Polygon", "Rectangle", "Circle"], 
+        self.props.add_enum_property(root, "Boundary Shape", "Custom Polygon", ["Custom Polygon", "Rectangle", "Circle"],
                                      self.change_boundary_shape)
-        self.props.add_bool_property(root, "Edit Polygon", self.polygon_handles[0].isVisible() if self.polygon_handles else False, 
+        self.props.add_bool_property(root, "Edit Polygon", self.polygon_handles[0].isVisible() if self.polygon_handles else False,
                                      self.toggle_polygon_handles)
+
+    def _set_heatmap_colormap(self, name: str):
+        self.heatmap_layer.colormap = name
+        if hasattr(self, "color_range_control"):
+            self.color_range_control.set_colormap(name)
 
     def populate_value_properties(self):
         root = self.props.add_group("Value Layer")
@@ -638,6 +667,33 @@ class DemoApp(QMainWindow):
             path.addEllipse(-200, -200, 400, 400)
             self.heatmap_layer.set_boundary_shape(path)
             self.toggle_polygon_handles(False)
+
+    def apply_color_range(self, color_min: float, color_max: float):
+        self._using_auto_range = False
+        self.heatmap_layer.set_color_range(color_min, color_max)
+
+    def reset_auto_color_range(self):
+        self._using_auto_range = True
+        self.heatmap_layer.set_color_range(None, None)
+        self._update_color_range_from_data()
+
+    def _handle_data_changed(self):
+        if self._using_auto_range:
+            self.heatmap_layer.set_color_range(None, None)
+            self._update_color_range_from_data()
+
+    def _update_color_range_from_data(self):
+        if not hasattr(self, "color_range_control"):
+            return
+
+        values = self.data_container.values
+        if values.size == 0:
+            color_min, color_max = 0.0, 1.0
+        else:
+            color_min = float(values.min())
+            color_max = float(values.max())
+
+        self.color_range_control.set_range(color_min, color_max, emit_signal=False)
             
     def wheelEvent(self, event):
         factor = 1.1

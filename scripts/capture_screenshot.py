@@ -5,8 +5,9 @@ import time
 # Set offscreen platform before importing PySide6
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-from PySide6.QtCore import QTimer, QSize, QRectF
-from PySide6.QtGui import QImage, QPainter, QColor
+from qtpy.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
+from qtpy.QtGui import QImage, QPainter, QColor
+from qtpy.QtCore import Qt, QTimer, QRectF, QSize
 
 # Add project root to path to import examples
 # Even though quick_start handles imports, we need to import quick_start itself

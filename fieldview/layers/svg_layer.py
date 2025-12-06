@@ -1,6 +1,6 @@
-from PySide6.QtSvg import QSvgRenderer
-from PySide6.QtGui import QPainter
-from PySide6.QtCore import QRectF, QPointF
+from qtpy.QtSvgWidgets import QGraphicsSvgItem
+from qtpy.QtSvg import QSvgRenderer
+from qtpy.QtCore import QRectF, QPointF
 from fieldview.layers.layer import Layer
 
 class SvgLayer(Layer):

@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
-from PySide6.QtGui import QPolygonF
-from PySide6.QtCore import QRectF
+from qtpy.QtGui import QPolygonF
+from qtpy.QtCore import QPointF, QRectF
 from fieldview.utils.grid_manager import InterpolatorCache
 
 def test_interpolator_cache_caching():

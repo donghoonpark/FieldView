@@ -1,9 +1,9 @@
 import sys
 import os
 import numpy as np
-from PySide6.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
-from PySide6.QtGui import QPolygonF
-from PySide6.QtCore import Qt, QPointF
+from qtpy.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
+from qtpy.QtGui import QPolygonF
+from qtpy.QtCore import Qt, QPointF
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from fieldview.core.data_container import DataContainer

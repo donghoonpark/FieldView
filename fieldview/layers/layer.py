@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QGraphicsObject
-from PySide6.QtCore import QRectF
+from qtpy.QtWidgets import QGraphicsObject
+from qtpy.QtCore import QRectF
 
 class Layer(QGraphicsObject):
     """
