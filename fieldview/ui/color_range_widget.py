@@ -1,4 +1,3 @@
-
 from qtpy.QtCore import Signal
 from qtpy.QtGui import QPainter, QLinearGradient, QColor
 from typing import TYPE_CHECKING
@@ -11,7 +10,7 @@ if TYPE_CHECKING:
         QLabel,
         QDoubleSpinBox,
     )
-    from PySide6.QtCore import Signal, Qt
+    from PySide6.QtCore import Signal
 else:
     from qtpy.QtWidgets import (
         QWidget,
@@ -20,7 +19,7 @@ else:
         QLabel,
         QDoubleSpinBox,
     )
-    from qtpy.QtCore import Signal, Qt
+    from qtpy.QtCore import Signal
 
 from fieldview.rendering.colormaps import get_colormap
 

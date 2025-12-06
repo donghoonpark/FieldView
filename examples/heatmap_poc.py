@@ -8,28 +8,22 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from PySide6.QtWidgets import (
         QApplication,
-        QMainWindow,
-        QGraphicsView,
-        QGraphicsScene,
         QWidget,
         QVBoxLayout,
         QPushButton,
         QLabel,
     )
-    from PySide6.QtGui import QPainter, QColor, QPolygonF, QImage
+    from PySide6.QtGui import QPainter, QColor, QImage
     from PySide6.QtCore import Qt, QTimer, QPoint
 else:
     from qtpy.QtWidgets import (
         QApplication,
-        QMainWindow,
-        QGraphicsView,
-        QGraphicsScene,
         QWidget,
         QVBoxLayout,
         QPushButton,
         QLabel,
     )
-    from qtpy.QtGui import QPainter, QColor, QPolygonF, QImage
+    from qtpy.QtGui import QPainter, QColor, QImage
     from qtpy.QtCore import Qt, QTimer, QPoint
 
 

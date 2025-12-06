@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, List, Dict, Tuple, Set, Union
+from typing import TYPE_CHECKING, Optional, List, Dict, Set, Union
 
 if TYPE_CHECKING:
     from PySide6.QtGui import QPainter, QColor, QFont, QFontMetrics, QFontDatabase
