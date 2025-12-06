@@ -3,6 +3,10 @@ import time
 from fieldview.utils.grid_manager import InterpolatorCache
 from PySide6.QtGui import QImage, QPainter, QColor, QPolygonF, QPainterPath
 from PySide6.QtCore import Qt, QTimer, QRectF, QPointF, Signal
+from typing import Optional, Tuple, List, Literal, Union
+from fieldview.rendering.colormaps import ColormapName
+
+QualityLevel = Literal['very low', 'low', 'medium', 'high', 'very high', 'adaptive']
 
 from fieldview.layers.data_layer import DataLayer
 
@@ -60,11 +64,11 @@ class HeatmapLayer(DataLayer):
         self.on_data_changed()
 
     @property
-    def colormap(self):
+    def colormap(self) -> str:
         return self._colormap.name
 
     @colormap.setter
-    def colormap(self, name):
+    def colormap(self, name: Union[ColormapName, str]):
         self._colormap = get_colormap(name)
         self.update_layer()
 
@@ -80,7 +84,7 @@ class HeatmapLayer(DataLayer):
     def color_range(self):
         return self._color_min, self._color_max
 
-    def set_color_range(self, color_min=None, color_max=None):
+    def set_color_range(self, color_min: Optional[float] = None, color_max: Optional[float] = None):
         """
         Sets explicit normalization bounds for the heatmap colors.
 
@@ -110,7 +114,7 @@ class HeatmapLayer(DataLayer):
         self.on_data_changed()
 
     @property
-    def quality(self):
+    def quality(self) -> QualityLevel:
         if self._is_adaptive: return 'adaptive'
         if self._idle_grid_size <= 50: return 'very low'
         if self._idle_grid_size <= 100: return 'low'
@@ -119,7 +123,7 @@ class HeatmapLayer(DataLayer):
         return 'very high'
 
     @quality.setter
-    def quality(self, value):
+    def quality(self, value: Union[QualityLevel, str, int]):
         if isinstance(value, str):
             value = value.lower()
         
@@ -153,7 +157,7 @@ class HeatmapLayer(DataLayer):
         
         self.on_data_changed()
 
-    def set_boundary_shape(self, shape):
+    def set_boundary_shape(self, shape: Union[QPolygonF, QRectF, QPainterPath]):
         """
         Sets the boundary polygon for the heatmap.
         Accepts QPolygonF, QRectF, or QPainterPath.
@@ -226,7 +230,7 @@ class HeatmapLayer(DataLayer):
         self._generate_heatmap(method='rbf', neighbors=self._neighbors, grid_size=self._idle_grid_size)
         self.update()
 
-    def _generate_heatmap(self, method='rbf', neighbors=30, grid_size=None):
+    def _generate_heatmap(self, method: str = 'rbf', neighbors: int = 30, grid_size: Optional[int] = None):
         """
         Generates the heatmap image using cached interpolators.
         """
@@ -337,7 +341,7 @@ class HeatmapLayer(DataLayer):
 
 
 
-    def _array_to_qimage(self, Z):
+    def _array_to_qimage(self, Z: np.ndarray) -> QImage:
         """
         Converts 2D array Z to QImage using vectorized operations.
         """
