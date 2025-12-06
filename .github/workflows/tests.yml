@@ -24,7 +24,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libdbus-1-3 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 x11-utils
+          sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libdbus-1-3 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 x11-utils xvfb
       
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -62,4 +62,9 @@ jobs:
         # Set QT_API environment variable based on binding
         env:
           QT_API: ${{ matrix.qt-binding }}
-        run: uv run --no-sync pytest
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            xvfb-run -a uv run --no-sync pytest
+          else
+            uv run --no-sync pytest
+          fi
