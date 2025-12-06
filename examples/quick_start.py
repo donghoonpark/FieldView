@@ -1,16 +1,16 @@
 import sys
 import os
-import numpy as np
-from qtpy.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
-from qtpy.QtGui import QPolygonF
-from qtpy.QtCore import Qt, QPointF
+from qtpy.QtWidgets import QApplication
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from fieldview.core.data_container import DataContainer
-from fieldview.layers.heatmap_layer import HeatmapLayer
-from fieldview.layers.text_layer import ValueLayer
-from fieldview.layers.svg_layer import SvgLayer
-from fieldview.layers.pin_layer import PinLayer
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from fieldview import FieldView
+from examples.us_map_utils import (
+    get_state_data,
+    get_us_boundary,
+    load_weather_data,
+    generate_us_dataset,
+)
+
 
 def run():
     # Check if QApplication already exists (for testing/script usage)
@@ -19,81 +19,46 @@ def run():
         app = QApplication(sys.argv)
 
     # 1. Setup Data
-    data = DataContainer()
-    # Use fixed seed for consistent screenshot
-    np.random.seed(41)
-    
-    # Define rooms (x1, y1, x2, y2)
-    rooms = [
-        (-450, -250, -150, 250), # Master Bed
-        (-150, -250, 150, 250),  # Living
-        (150, 0, 300, 250),      # Bed 2
-        (300, -100, 450, 250)    # Bed 4
-    ]
-    
-    points = []
-    values = []
-    
-    for i in range(20):
-        room = rooms[np.random.randint(len(rooms))]
-        x1, y1, x2, y2 = room
-        margin = 20
-        x = np.random.uniform(x1 + margin, x2 - margin)
-        y = np.random.uniform(y1 + margin, y2 - margin)
-        points.append([x, y])
-        values.append(np.random.rand() * 100)
-        
-    data.set_data(np.array(points), np.array(values))
+    # Load US Map Data
+    svg_file = os.path.join(os.path.dirname(__file__), "us_map.svg")
+    state_paths, centroids = get_state_data(svg_file)
 
-    # 2. Create Scene & Layers
-    scene = QGraphicsScene()
-    
+    # Load Weather Data
+    weather_data = load_weather_data()
+
+    # Generate Dataset
+    points, values = generate_us_dataset(centroids, weather_data)
+
+    # 2. Create FieldView
+    view = FieldView()
+    view.resize(1200, 800)
+    view.set_data(points, values)
+
+    # 3. Add Layers
+
     # SVG Layer (Background)
-    svg_path = os.path.join(os.path.dirname(__file__), 'floorplan_apartment.svg')
-    svg_layer = SvgLayer()
-    svg_layer.load_svg(svg_path)
-    svg_layer.setZValue(0)
-    scene.addItem(svg_layer)
-    
-    # Heatmap Layer (Data Visualization)
-    heatmap = HeatmapLayer(data)
-    heatmap.setOpacity(0.6)
-    heatmap.setZValue(1)
-    
-    # Define custom boundary polygon for the apartment
-    polygon = QPolygonF([
-        QPointF(-450, -330), QPointF(-300, -330), QPointF(-300, -250),
-        QPointF(-150, -250), QPointF(-150, -300), QPointF(150, -300), 
-        QPointF(150, -250), QPointF(450, -250), QPointF(450, 250), 
-        QPointF(-450, 250)
-    ])
-    heatmap.set_boundary_shape(polygon)
-    
-    scene.addItem(heatmap)
-    
-    # Pin Layer (Markers)
-    pin_layer = PinLayer(data)
-    pin_layer.setZValue(2)
-    scene.addItem(pin_layer)
-    
-    # Value Layer (Labels)
-    values_layer = ValueLayer(data)
-    values_layer.update_layer()
-    values_layer.setZValue(3)
-    scene.addItem(values_layer)
+    view.add_svg_layer(svg_file)
 
-    # 3. Setup View
-    view = QGraphicsView()
-    view.setScene(scene)
-    view.resize(600, 600)
-    
-    # Ensure the content is visible
+    # Heatmap Layer (Data Visualization)
+    heatmap = view.add_heatmap_layer(opacity=0.6)
+
+    # Setup Heatmap Boundary
+    us_boundary = get_us_boundary(state_paths)
+    heatmap.set_boundary_shape(us_boundary)
+    heatmap.neighbors = 100  # Adjust for US map scale
+
+    # Pin Layer (Markers)
+    view.add_pin_layer()
+
+    # Value Layer (Labels)
+    view.add_value_layer()
+
+    # 4. Show View
     view.show()
-    # Fit in view after showing
-    scene.setSceneRect(scene.itemsBoundingRect())
-    view.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+    view.fit_to_scene()
 
     return app, view
+
 
 if __name__ == "__main__":
     app, view = run()

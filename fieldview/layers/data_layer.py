@@ -3,16 +3,18 @@ import numpy as np
 from fieldview.layers.layer import Layer
 from fieldview.core.data_container import DataContainer
 
+
 class DataLayer(Layer):
     """
     Base class for layers that visualize data from a DataContainer.
     Handles data change signals and excluded indices.
     """
+
     def __init__(self, data_container: DataContainer, parent=None):
         super().__init__(parent)
         self._data_container = data_container
-        self._excluded_indices = set()
-        
+        self._excluded_indices: set[int] = set()
+
         # Connect signal
         self._data_container.dataChanged.connect(self.on_data_changed)
         # Initial update
@@ -59,22 +61,30 @@ class DataLayer(Layer):
         """
         if not self._excluded_indices:
             return list(range(len(self._data_container.points)))
-        return [i for i in range(len(self._data_container.points)) if i not in self._excluded_indices]
+        return [
+            i
+            for i in range(len(self._data_container.points))
+            if i not in self._excluded_indices
+        ]
 
     def _update_bounding_rect(self):
         points = self._data_container.points
         if len(points) == 0:
             return
-            
+
         min_x = np.min(points[:, 0])
         max_x = np.max(points[:, 0])
         min_y = np.min(points[:, 1])
         max_y = np.max(points[:, 1])
-        
+
         # Add padding (e.g., for icons or text)
         padding = 50
-        rect = QRectF(min_x - padding, min_y - padding, 
-                      max_x - min_x + 2*padding, max_y - min_y + 2*padding)
+        rect = QRectF(
+            min_x - padding,
+            min_y - padding,
+            max_x - min_x + 2 * padding,
+            max_y - min_y + 2 * padding,
+        )
         self.set_bounding_rect(rect)
 
     def get_valid_data(self):
@@ -90,8 +100,8 @@ class DataLayer(Layer):
 
         # Create a mask for valid indices
         mask = self.get_valid_indices()
-        
+
         # Filter labels (list)
         valid_labels = [labels[i] for i in mask]
-        
+
         return points[mask], values[mask], valid_labels

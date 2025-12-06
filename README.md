@@ -1,143 +1,84 @@
 # FieldView
 
-**FieldView** is a high-performance Python + Qt library for 2D data visualization, specifically designed for handling irregular data points. It uses `QtPy` to support **PySide6**, **PyQt6**, and **PyQt5**. It provides a robust rendering engine for heatmaps, markers, and text labels with minimal external dependencies.
+**FieldView** is a high-performance Python library for 2D data visualization, built on top of the Qt framework. It is designed to efficiently render irregular data points using heatmaps, markers, and text labels.
 
-<img src="assets/us_map_demo.png" alt="Quick Start" width="600">
+FieldView leverages `QtPy` to support **PySide6**, **PyQt6**, and **PyQt5**, providing a flexible and robust solution for integrating advanced visualizations into Python desktop applications.
+
+<img src="assets/us_map_demo.png" alt="FieldView Demo" width="800">
 
 ## Key Features
 
-*   **Fast Heatmap Rendering**: Hybrid RBF (Radial Basis Function) interpolation for high-quality visualization with real-time performance optimization.
-*   **Irregular Data Support**: Native handling of non-grid data points.
-*   **Polygon Masking**: Support for arbitrary boundary shapes (Polygon, Circle, Rectangle) to clip heatmaps.
-*   **Layer System**: Modular architecture with support for:
-    *   **HeatmapLayer**: Color-based data visualization.
-    *   **ValueLayer/LabelLayer**: Text rendering with collision avoidance.
-    *   **PinLayer**: Marker placement.
-    *   **SvgLayer**: Background floor plans or overlays.
-*   **Minimal Dependencies**: Built on `numpy`, `scipy`, and `qtpy`.
+*   **High-Performance Heatmaps**: Utilizes hybrid RBF (Radial Basis Function) interpolation for smooth, high-quality visualization of scattered data.
+*   **Irregular Data Handling**: Natively supports non-grid data points without requiring pre-processing.
+*   **Flexible Masking**: Supports arbitrary boundary shapes (Polygon, Circle, Rectangle) for precise clipping.
+*   **Modular Layer System**:
+    *   **HeatmapLayer**: Renders interpolated data with customizable colormaps.
+    *   **ValueLayer / LabelLayer**: Displays text with automatic collision avoidance.
+    *   **PinLayer**: Visualizes data points with markers.
+    *   **SvgLayer**: Renders SVG backgrounds for context (e.g., floor plans, maps).
+*   **Minimal Dependencies**: Core functionality relies only on `numpy`, `scipy`, and `qtpy`.
 
 ## Installation
 
-```bash
-pip install fieldview[pyside6]  # Install with PySide6
-# OR
-pip install fieldview[pyqt6]    # Install with PyQt6
-# OR
-pip install fieldview[pyqt5]    # Install with PyQt5
+Install FieldView with your preferred Qt binding:
 
+```bash
+pip install fieldview[pyside6]  # Recommended
+# OR
+pip install fieldview[pyqt6]
+# OR
+pip install fieldview[pyqt5]
 ```
 
-*Note: Requires Python 3.10+*
+*Requires Python 3.10+*
 
 ## Quick Start
 
-Here is a minimal example to get a heatmap up and running:
+FieldView provides a high-level `FieldView` widget for easy integration.
 
 ```python
 import sys
-import os
 import numpy as np
-from qtpy.QtWidgets import QApplication, QGraphicsView, QGraphicsScene
-from qtpy.QtGui import QPolygonF
-from qtpy.QtCore import Qt, QPointF
-from fieldview.core.data_container import DataContainer
-from fieldview.layers.heatmap_layer import HeatmapLayer
-from fieldview.layers.text_layer import ValueLayer
-from fieldview.layers.svg_layer import SvgLayer
-from fieldview.layers.pin_layer import PinLayer
+from qtpy.QtWidgets import QApplication
+from fieldview import FieldView
 
 app = QApplication(sys.argv)
 
-# 1. Setup Data
-data = DataContainer()
-np.random.seed(44)
+# 1. Prepare Data
+points = np.random.rand(20, 2) * 400
+values = np.random.rand(20) * 100
 
-# Define rooms (x1, y1, x2, y2)
-rooms = [
-    (-450, -250, -150, 250), # Master Bed
-    (-150, -250, 150, 250),  # Living
-    (150, 0, 300, 250),      # Bed 2
-    (300, -100, 450, 250)    # Bed 4
-]
-
-points = []
-values = []
-
-for i in range(20):
-    room = rooms[np.random.randint(len(rooms))]
-    x1, y1, x2, y2 = room
-    margin = 20
-    x = np.random.uniform(x1 + margin, x2 - margin)
-    y = np.random.uniform(y1 + margin, y2 - margin)
-    points.append([x, y])
-    values.append(np.random.rand() * 100)
-    
-data.set_data(np.array(points), np.array(values))
-
-# 2. Create Scene & Layers
-scene = QGraphicsScene()
-
-# SVG Layer (Background)
-# Assuming floorplan_apartment.svg exists in current dir or provide path
-svg_layer = SvgLayer()
-svg_layer.load_svg("examples/floorplan_apartment.svg")
-svg_layer.setZValue(0)
-scene.addItem(svg_layer)
-
-# Heatmap Layer
-heatmap = HeatmapLayer(data)
-heatmap.setOpacity(0.6)
-heatmap.setZValue(1)
-
-# Define custom boundary polygon for the apartment
-polygon = QPolygonF([
-    QPointF(-450, -330), QPointF(-300, -330), QPointF(-300, -250),
-    QPointF(-150, -250), QPointF(-150, -300), QPointF(150, -300), 
-    QPointF(150, -250), QPointF(450, -250), QPointF(450, 250), 
-    QPointF(-450, 250)
-])
-heatmap.set_boundary_shape(polygon)
-
-scene.addItem(heatmap)
-
-# Pin Layer
-pin_layer = PinLayer(data)
-pin_layer.setZValue(2)
-scene.addItem(pin_layer)
-
-# Value Layer
-values_layer = ValueLayer(data)
-values_layer.setZValue(3)
-scene.addItem(values_layer)
-
-# 3. Setup View
-view = QGraphicsView(scene)
+# 2. Create FieldView
+view = FieldView()
 view.resize(800, 600)
-view.show()
+view.set_data(points, values)
 
-# Ensure content is visible
-scene.setSceneRect(scene.itemsBoundingRect())
-view.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+# 3. Add Layers
+view.add_heatmap_layer(opacity=0.6)
+view.add_pin_layer()
+view.add_value_layer()
+
+# 4. Show
+view.show()
+view.fit_to_scene()
 
 sys.exit(app.exec())
 ```
-≈
 
-## Running the Demo
+## Examples
 
-To see all features in action, including the property editor and real-time interaction:
+To explore the full capabilities, including the property inspector and real-time updates, run the included demo:
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/fieldview.git
-cd fieldview
-
-# Run the demo using uv (recommended)
+# Using uv (recommended)
 uv run examples/demo.py
 ```
 
-<img src="assets/demo.gif" alt="Demo" width="800">
-
 ## License
 
-MIT License
+This project is licensed under a hybrid model depending on the Qt binding used:
+
+*   **LGPLv3**: When used with **PySide6**.
+*   **GPLv3**: When used with **PyQt6** or **PyQt5**.
+
+Please ensure compliance with the license of the chosen Qt binding.

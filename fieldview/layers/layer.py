@@ -1,14 +1,18 @@
 from qtpy.QtWidgets import QGraphicsObject
 from qtpy.QtCore import QRectF
 
+
 class Layer(QGraphicsObject):
     """
     Abstract base class for all visual layers in FieldView.
     Inherits from QGraphicsObject to support signals and integration with QGraphicsScene.
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._bounding_rect = QRectF(0, 0, 300, 300) # Default size, should be updated by subclasses
+        self._bounding_rect = QRectF(
+            0, 0, 300, 300
+        )  # Default size, should be updated by subclasses
 
     def boundingRect(self):
         return self._bounding_rect

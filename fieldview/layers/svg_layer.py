@@ -1,12 +1,13 @@
-from fieldview.utils.qt_compat import QGraphicsSvgItem
 from qtpy.QtSvg import QSvgRenderer
 from qtpy.QtCore import QRectF, QPointF
 from fieldview.layers.layer import Layer
+
 
 class SvgLayer(Layer):
     """
     Layer for rendering an SVG file.
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._renderer = QSvgRenderer()
