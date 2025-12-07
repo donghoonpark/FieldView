@@ -56,8 +56,6 @@ jobs:
           echo "Installed Qt Binding Version:"
           uv pip show ${{ matrix.qt-binding }}
           
-
-        
       - name: Run Tests
         # Set QT_API environment variable based on binding
         env:
