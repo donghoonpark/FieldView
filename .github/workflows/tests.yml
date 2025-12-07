@@ -63,8 +63,4 @@ jobs:
         env:
           QT_API: ${{ matrix.qt-binding }}
         run: |
-          if ( "$RUNNER_OS" == "Linux" ); then
-            xvfb-run -a uv run --no-sync pytest
-          else
-            uv run --no-sync pytest
-          fi
+          uv run --no-sync pytest
