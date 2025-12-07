@@ -90,3 +90,40 @@ class FieldView(QGraphicsView):
         """Fits the view to the scene content."""
         self._scene.setSceneRect(self._scene.itemsBoundingRect())
         self.fitInView(self._scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+
+    def wheelEvent(self, event):
+        """Handles zoom on mouse wheel."""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            # If Ctrl is held, maybe do something else?
+            # Standard behavior for many apps is just wheel to zoom, or Ctrl+wheel.
+            # For now, let's make plain wheel zoom, as it's often expected in map viewers.
+            pass
+
+        zoom_in_factor = 1.15
+        zoom_out_factor = 1 / zoom_in_factor
+
+        # Save the scene pos
+        if hasattr(event, "position"):
+            pos = event.position().toPoint()
+        else:
+            pos = event.pos()
+        old_pos = self.mapToScene(pos)
+
+        # Zoom
+        if event.angleDelta().y() > 0:
+            zoom_factor = zoom_in_factor
+        else:
+            zoom_factor = zoom_out_factor
+
+        self.scale(zoom_factor, zoom_factor)
+
+        # Get the new position
+        if hasattr(event, "position"):
+            pos = event.position().toPoint()
+        else:
+            pos = event.pos()
+        new_pos = self.mapToScene(pos)
+
+        # Move scene to old position
+        delta = new_pos - old_pos
+        self.translate(delta.x(), delta.y())
