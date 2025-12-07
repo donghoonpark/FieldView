@@ -45,6 +45,7 @@ dev = [
     "ruff",
     "mypy",
     "pandas-stubs",
+    "matplotlib"
 ]
 
 [tool.mypy]

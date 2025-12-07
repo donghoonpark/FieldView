@@ -23,6 +23,21 @@ FieldView leverages `QtPy` to support **PySide6**, **PyQt6**, and **PyQt5**, pro
     *   **SvgLayer**: Renders SVG backgrounds for context (e.g., floor plans, maps).
 *   **Minimal Dependencies**: Core functionality relies only on `numpy`, `scipy`, and `qtpy`.
 
+## Performance
+
+FieldView's `FastRBFInterpolator` is designed for real-time rendering. By precomputing the interpolation matrix, it achieves significant speedups during the rendering phase.
+
+![Benchmark Plot](benchmark_plot.png)
+
+**Benchmark Results (100 points, 200x200 grid, k=30, NumPy 2.1.0, Apple M1)**
+
+| Method | Time per Frame | Speedup |
+| :--- | :--- | :--- |
+| **Scipy RBFInterpolator** | ~1616 ms | 1x |
+| **FastRBFInterpolator (Predict)** | **~1.2 ms** | **~1322x** |
+
+*Note: FastRBF requires a one-time setup cost (~1.8s in this test), but subsequent frames are rendered in real-time.*
+
 ## Installation
 
 Install FieldView with your preferred Qt binding:
