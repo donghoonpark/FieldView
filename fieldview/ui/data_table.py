@@ -14,6 +14,15 @@ from typing import List, Set, Any, Union
 from fieldview.core.data_container import DataContainer
 
 
+# Cross-binding compatibility for CheckState
+try:
+    CHECKED = Qt.CheckState.Checked.value
+    UNCHECKED = Qt.CheckState.Unchecked.value
+except AttributeError:
+    CHECKED = int(Qt.CheckState.Checked)  # type: ignore
+    UNCHECKED = int(Qt.CheckState.Unchecked)  # type: ignore
+
+
 class PointTableModel(QAbstractTableModel):
     """
     Table model for DataContainer points.
@@ -86,12 +95,12 @@ class PointTableModel(QAbstractTableModel):
 
         if role == Qt.ItemDataRole.CheckStateRole:
             if col == 0:
-                if value == Qt.CheckState.Checked.value:
+                if value == CHECKED:
                     self._highlighted_indices.add(row)
                 else:
                     self._highlighted_indices.discard(row)
             elif col == 1:
-                if value == Qt.CheckState.Checked.value:
+                if value == CHECKED:
                     self._excluded_indices.add(row)
                 else:
                     self._excluded_indices.discard(row)

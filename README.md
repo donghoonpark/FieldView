@@ -29,14 +29,7 @@ FieldView's `FastRBFInterpolator` is designed for real-time rendering. By precom
 
 ![Benchmark Plot](benchmark_plot.png)
 
-**Benchmark Results (100 points, 200x200 grid, k=30, NumPy 2.1.0, Apple M1)**
-
-| Method | Time per Frame | Speedup |
-| :--- | :--- | :--- |
-| **Scipy RBFInterpolator** | ~1616 ms | 1x |
-| **FastRBFInterpolator (Predict)** | **~1.2 ms** | **~1322x** |
-
-*Note: FastRBF requires a one-time setup cost (~1.8s in this test), but subsequent frames are rendered in real-time.*
+*Note: FastRBF requires a one-time setup cost to accelerate subsequent frame rendering.*
 
 ## Installation
 

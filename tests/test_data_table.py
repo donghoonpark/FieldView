@@ -8,7 +8,7 @@ else:
     from qtpy.QtCore import Qt
 
 from fieldview.core.data_container import DataContainer
-from fieldview.ui.data_table import PointTableModel, DataTable
+from fieldview.ui.data_table import PointTableModel, DataTable, CHECKED, UNCHECKED
 
 
 @pytest.fixture
@@ -74,15 +74,11 @@ def test_model_set_data_check_state(data_container):
     index_exclude = model.index(0, 1)
 
     # Check
-    assert model.setData(
-        index_exclude, Qt.CheckState.Checked.value, Qt.ItemDataRole.CheckStateRole
-    )
+    assert model.setData(index_exclude, CHECKED, Qt.ItemDataRole.CheckStateRole)
     assert 0 in model._excluded_indices
 
     # Uncheck
-    assert model.setData(
-        index_exclude, Qt.CheckState.Unchecked.value, Qt.ItemDataRole.CheckStateRole
-    )
+    assert model.setData(index_exclude, UNCHECKED, Qt.ItemDataRole.CheckStateRole)
     assert 0 not in model._excluded_indices
 
 
