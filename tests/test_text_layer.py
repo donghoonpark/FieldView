@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING
 
+import pytest
+
 if TYPE_CHECKING:
     from PySide6.QtGui import QFont
     from PySide6.QtWidgets import QStyleOptionGraphicsItem
@@ -26,6 +28,41 @@ def test_value_layer(qtbot):
 
     layer.prefix = "Val: "
     assert layer._get_text(0, 10.12345, "") == "Val: 10.123 m"
+
+
+def test_value_layer_prefix_property_updates_layer(qtbot, monkeypatch):
+    dc = DataContainer()
+    dc.set_data([[0, 0]], [5.4321])
+    layer = ValueLayer(dc)
+
+    update_calls: list[None] = []
+    monkeypatch.setattr(layer, "update_layer", lambda: update_calls.append(None))
+
+    layer.prefix = "~"
+
+    assert layer.prefix == "~"
+    assert len(update_calls) == 1
+
+    with pytest.raises(TypeError):
+        layer.prefix = 123  # type: ignore[assignment]
+
+
+def test_value_layer_suffix_and_postfix(qtbot):
+    dc = DataContainer()
+    dc.set_data([[0, 0]], [1.2345])
+    layer = ValueLayer(dc)
+
+    layer.postfix = "㎧"
+    assert layer._get_text(0, 1.2345, "") == "1.23㎧"
+
+    layer.prefix = "~"
+    assert layer._get_text(0, 1.2345, "") == "~1.23㎧"
+
+    layer.suffix = "℃"
+    assert layer.postfix == "℃"
+    assert layer._get_text(0, 1.2345, "") == "~1.23℃"
+
+    assert "℃" in ValueLayer.UNIT_SUFFIXES
 
 
 def test_label_layer(qtbot):

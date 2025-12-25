@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, List, Dict, Set, Union
+from typing import TYPE_CHECKING, ClassVar, Optional, List, Dict, Set, Union
 
 if TYPE_CHECKING:
     from PySide6.QtGui import QPainter, QColor, QFont, QFontMetrics, QFontDatabase
@@ -243,14 +243,54 @@ class ValueLayer(TextLayer):
     Renders numerical values.
     """
 
+    UNIT_SUFFIXES: ClassVar[tuple[str, ...]] = (
+        "℃",  # Degree Celsius
+        "℉",  # Degree Fahrenheit
+        "％",  # Percentage
+        "㎐",  # Hertz
+        "㎑",  # Kilohertz
+        "㎒",  # Megahertz
+        "㎓",  # Gigahertz
+        "㎂",  # Microampere
+        "㎃",  # Milliampere
+        "㎄",  # Kiloampere
+        "㎎",  # Milligram
+        "㎏",  # Kilogram
+        "㎍",  # Microgram
+        "㎕",  # Microliter
+        "㎖",  # Milliliter
+        "㎗",  # Deciliter
+        "㎘",  # Kiloliter
+        "㎜",  # Millimeter
+        "㎝",  # Centimeter
+        "㎞",  # Kilometer
+        "㎡",  # Square meter
+        "㎧",  # Meters per second
+        "㎨",  # Meters per second squared
+        "㎩",  # Kilopascal
+        "㎪",  # Megapascal
+        "㎫",  # Gigapascal
+        "㎷",  # Microvolt
+        "㎸",  # Millivolt
+        "㎹",  # Megavolt
+        "㎽",  # Milliampere-hour
+        "㎾",  # Kilowatt
+        "㎿",  # Megawatt
+        "㏀",  # Kiloohm
+        "㏁",  # Megaohm
+        "㏃",  # Becquerel
+        "㏄",  # Cubic centimeter
+        "㏈",  # Decibel
+        "㏊",  # Hectare
+        "㏕",  # Lux
+        "㏗",  # pH
+    )
+
     def __init__(self, data_container, parent: Optional[DataLayer] = None):
         super().__init__(data_container, parent)
         self._decimal_places = 2
-        self._suffix = ""
-        self._postfix = ""  # Same as suffix? antigravity.md says both. Let's assume prefix/suffix or just suffix.
-        # antigravity.md says "Can add suffix, postfix". Maybe prefix/suffix?
-        # Let's implement prefix and suffix.
         self._prefix = ""
+        self._postfix = ""
 
     @property
     def decimal_places(self) -> int:
@@ -263,11 +303,24 @@ class ValueLayer(TextLayer):
 
     @property
     def suffix(self) -> str:
-        return self._suffix
+        return self._postfix
 
     @suffix.setter
     def suffix(self, value: str):
-        self._suffix = value
+        if not isinstance(value, str):
+            raise TypeError("Suffix must be a string")
+        self._postfix = value
+        self.update_layer()
+
+    @property
+    def postfix(self) -> str:
+        return self._postfix
+
+    @postfix.setter
+    def postfix(self, value: str):
+        if not isinstance(value, str):
+            raise TypeError("Postfix must be a string")
+        self._postfix = value
         self.update_layer()
 
     @property
@@ -276,13 +329,15 @@ class ValueLayer(TextLayer):
 
     @prefix.setter
     def prefix(self, value: str):
+        if not isinstance(value, str):
+            raise TypeError("Prefix must be a string")
         self._prefix = value
         self.update_layer()
 
     def _get_text(self, index: int, value: Optional[float], label: str) -> str:
         if value is None:
             return ""
-        return f"{self._prefix}{value:.{self._decimal_places}f}{self._suffix}"
+        return f"{self._prefix}{value:.{self._decimal_places}f}{self._postfix}"
 
 
 class LabelLayer(TextLayer):

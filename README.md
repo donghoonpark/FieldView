@@ -87,6 +87,25 @@ To explore the full capabilities, including the property inspector and real-time
 uv run examples/demo.py
 ```
 
+## Development
+
+You can run formatting, type checking and tests with [`uv`](https://github.com/astral-sh/uv).
+
+### Running tests locally
+
+GitHub Actions installs additional system packages for Qt-based tests (see `.github/workflows/tests.yml`).
+On a fresh Linux environment you can mirror that setup by running:
+
+```bash
+sudo scripts/install_test_system_deps.sh
+```
+
+Headless environments also need the same Qt variables the CI sets:
+
+```bash
+QT_API=pyside6 QT_QPA_PLATFORM=offscreen uv run pytest
+```
+
 ## License
 
 This project is licensed under a hybrid model depending on the Qt binding used:
