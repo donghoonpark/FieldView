@@ -143,11 +143,13 @@ def test_heatmap_exclusions_regenerate_cached_image(qtbot):
     dc.set_data(points, values)
 
     image_before = layer._cached_image
+    assert image_before is not None
     pixel_before = image_before.pixelColor(25, 25).rgba()
 
     layer.set_excluded_indices([3])
 
     image_after = layer._cached_image
+    assert image_after is not None
     pixel_after = image_after.pixelColor(25, 25).rgba()
 
     assert image_after is not image_before
