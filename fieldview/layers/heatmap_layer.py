@@ -426,10 +426,8 @@ class HeatmapLayer(DataLayer):
         height, width = Z.shape
 
         # 1. Normalize Z to 0-255 indices
-        Z_norm = np.nan_to_num(Z, nan=-1)
-
-        # Mask for transparent pixels
-        mask = Z_norm == -1
+        mask = np.isnan(Z)
+        Z_norm = np.where(mask, 0.0, Z)
         valid_values = Z_norm[~mask]
 
         # Determine normalization bounds

@@ -100,7 +100,7 @@ def test_heatmap_color_range_manual_and_auto(qtbot):
 
     # Explicit bounds should drive normalization
     layer.set_color_range(2.0, 8.0)
-    grid = np.array([[0.0, 5.0], [10.0, -1.0]])
+    grid = np.array([[0.0, 5.0], [10.0, np.nan]])
     image = layer._array_to_qimage(grid)
 
     lut = layer._colormap.get_lut(256)
@@ -132,3 +132,34 @@ def test_heatmap_color_range_validation(qtbot):
 
     with pytest.raises(ValueError):
         layer.set_color_range(5, 5)
+
+
+def test_heatmap_exclusions_regenerate_cached_image(qtbot):
+    dc = DataContainer()
+    layer = HeatmapLayer(dc)
+
+    points = np.array([[0, 0], [100, 0], [0, 100], [100, 100]], dtype=float)
+    values = np.array([0.0, 0.0, 0.0, 100.0], dtype=float)
+    dc.set_data(points, values)
+
+    image_before = layer._cached_image
+    pixel_before = image_before.pixelColor(25, 25).rgba()
+
+    layer.set_excluded_indices([3])
+
+    image_after = layer._cached_image
+    pixel_after = image_after.pixelColor(25, 25).rgba()
+
+    assert image_after is not image_before
+    assert pixel_after != pixel_before
+
+
+def test_heatmap_minus_one_values_are_not_transparent(qtbot):
+    dc = DataContainer()
+    layer = HeatmapLayer(dc)
+    layer.set_color_range(-2.0, 2.0)
+
+    image = layer._array_to_qimage(np.array([[-1.0, np.nan]], dtype=float))
+
+    assert image.pixelColor(0, 0).alpha() == 255
+    assert image.pixelColor(1, 0).alpha() == 0

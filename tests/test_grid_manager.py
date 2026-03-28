@@ -60,6 +60,29 @@ def test_interpolator_cache_eviction():
     assert i2_new is not i2
 
 
+def test_interpolator_cache_keeps_matching_boundary_generator():
+    cache = InterpolatorCache(max_size=3)
+    rng = np.random.default_rng(0)
+
+    points_a = rng.random((10, 2)) * 100
+    values_a = rng.random(10)
+    boundary_a = QPolygonF(QRectF(0, 0, 100, 100))
+
+    points_b = rng.random((10, 2)) * 200
+    boundary_b = QPolygonF(QRectF(-50, -50, 300, 300))
+
+    interp_a, _ = cache.get_interpolator(50, points_a, boundary_a)
+    cache.get_interpolator(50, points_b, boundary_b)
+    interp_a_hit, boundary_gen_a = cache.get_interpolator(50, points_a, boundary_a)
+
+    assert interp_a_hit is interp_a
+
+    boundary_values = boundary_gen_a.transform(values_a)
+    all_values = np.concatenate((values_a, boundary_values))
+
+    assert interp_a_hit.predict(all_values) is not None
+
+
 if __name__ == "__main__":
     test_interpolator_cache_caching()
     test_interpolator_cache_eviction()

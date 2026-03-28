@@ -51,3 +51,29 @@ def test_add_remove_excluded_index():
 
     layer.remove_excluded_index(5)
     assert 5 not in layer.excluded_indices
+
+
+def test_empty_data_resets_bounding_rect():
+    dc = DataContainer()
+    layer = DataLayer(dc)
+
+    dc.set_data([[0, 0], [10, 10]], [1, 2])
+    assert layer.boundingRect().width() > 0
+
+    dc.clear()
+    rect = layer.boundingRect()
+    assert rect.width() == 0
+    assert rect.height() == 0
+
+
+def test_excluded_indices_update_bounding_rect():
+    dc = DataContainer()
+    dc.set_data([[0, 0], [100, 100]], [1, 2])
+    layer = DataLayer(dc)
+
+    full_rect = layer.boundingRect()
+    layer.set_excluded_indices([1])
+    filtered_rect = layer.boundingRect()
+
+    assert filtered_rect.width() < full_rect.width()
+    assert filtered_rect.height() < full_rect.height()

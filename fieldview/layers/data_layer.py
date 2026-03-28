@@ -38,20 +38,20 @@ class DataLayer(Layer):
         Sets the set of indices to exclude from visualization.
         """
         self._excluded_indices = set(indices)
-        self.update_layer()
+        self.on_data_changed()
 
     def add_excluded_index(self, index):
         self._excluded_indices.add(index)
-        self.update_layer()
+        self.on_data_changed()
 
     def remove_excluded_index(self, index):
         if index in self._excluded_indices:
             self._excluded_indices.remove(index)
-            self.update_layer()
+            self.on_data_changed()
 
     def clear_excluded_indices(self):
         self._excluded_indices.clear()
-        self.update_layer()
+        self.on_data_changed()
 
     def on_data_changed(self):
         """
@@ -73,8 +73,9 @@ class DataLayer(Layer):
         ]
 
     def _update_bounding_rect(self):
-        points = self._data_container.points
+        points, _, _ = self.get_valid_data()
         if len(points) == 0:
+            self.set_bounding_rect(QRectF())
             return
 
         min_x = np.min(points[:, 0])

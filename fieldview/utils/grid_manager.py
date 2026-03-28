@@ -9,10 +9,20 @@ class InterpolatorCache:
     """
 
     def __init__(self, max_size=5):
-        self._cache = {}  # Key: (grid_size, points_hash, boundary_hash), Value: FastRBFInterpolator
+        self._cache = {}  # Key: cache tuple, Value: (FastRBFInterpolator, BoundaryPointGenerator)
         self._access_order = []  # List of keys, most recent last
         self._max_size = max_size
-        self._boundary_gen = BoundaryPointGenerator()
+
+    def _hash_boundary_shape(self, boundary_shape):
+        if boundary_shape.isEmpty():
+            return 0
+
+        return hash(
+            tuple(
+                (boundary_shape.at(i).x(), boundary_shape.at(i).y())
+                for i in range(boundary_shape.count())
+            )
+        )
 
     def get_interpolator(
         self,
@@ -29,19 +39,7 @@ class InterpolatorCache:
         """
         # 1. Generate Cache Key
         points_hash = hash(points.tobytes())
-        # Cheap boundary hash: count + first point + boundingRect center
-        if boundary_shape.isEmpty():
-            boundary_hash = 0
-        else:
-            rect = boundary_shape.boundingRect()
-            boundary_hash = hash(
-                (
-                    boundary_shape.count(),
-                    boundary_shape.at(0).x(),
-                    rect.center().x(),
-                    rect.center().y(),
-                )
-            )
+        boundary_hash = self._hash_boundary_shape(boundary_shape)
 
         key = (grid_size, points_hash, boundary_hash, neighbors, kernel)
 
@@ -50,17 +48,12 @@ class InterpolatorCache:
             # Move to end (most recently used)
             self._access_order.remove(key)
             self._access_order.append(key)
-            return self._cache[key], self._boundary_gen
+            return self._cache[key]
 
         # 3. Fit New Interpolator
-        # We need to fit the boundary generator first to get all source points
-        # Note: Boundary generator is shared/reused because it's cheap to fit (just KDTree)
-        # But wait, if we reuse it, we might overwrite its state if we have multiple layers?
-        # Actually, BoundaryPointGenerator state depends on points and boundary.
-        # If we want to return it, we should probably make sure it matches the requested points/boundary.
-        # For simplicity, let's just re-fit the shared one. It's fast.
-        self._boundary_gen.fit(points, boundary_shape)
-        boundary_points = self._boundary_gen.get_boundary_points()
+        boundary_gen = BoundaryPointGenerator()
+        boundary_gen.fit(points, boundary_shape)
+        boundary_points = boundary_gen.get_boundary_points()
 
         if len(boundary_points) > 0:
             all_source_points = np.vstack((points, boundary_points))
@@ -90,7 +83,7 @@ class InterpolatorCache:
             oldest_key = self._access_order.pop(0)
             del self._cache[oldest_key]
 
-        self._cache[key] = rbf
+        self._cache[key] = (rbf, boundary_gen)
         self._access_order.append(key)
 
-        return rbf, self._boundary_gen
+        return self._cache[key]
