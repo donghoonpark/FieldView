@@ -1,3 +1,4 @@
+import difflib
 from qtpy.QtWidgets import QTableView, QHeaderView, QMenu, QAction
 from typing import TYPE_CHECKING
 
@@ -35,6 +36,7 @@ class PointTableModel(QAbstractTableModel):
         self._data_container.dataChanged.connect(self._handle_data_changed)
         self._highlighted_indices: Set[int] = set()
         self._excluded_indices: Set[int] = set()
+        self._row_snapshot = self._snapshot_rows()
 
         self._headers = ["Highlight", "Exclude", "X", "Y", "Value", "Label"]
         self._visible_columns = [True] * len(self._headers)
@@ -158,7 +160,51 @@ class PointTableModel(QAbstractTableModel):
     def get_excluded_indices(self) -> List[int]:
         return list(self._excluded_indices)
 
+    def _snapshot_rows(self) -> List[tuple[float, float, float, str]]:
+        return [
+            (
+                float(self._data_container.points[i][0]),
+                float(self._data_container.points[i][1]),
+                float(self._data_container.values[i]),
+                str(self._data_container.labels[i]),
+            )
+            for i in range(len(self._data_container.points))
+        ]
+
+    def _remap_indices(
+        self,
+        indices: Set[int],
+        old_snapshot: List[tuple[float, float, float, str]],
+        new_snapshot: List[tuple[float, float, float, str]],
+    ) -> Set[int]:
+        matcher = difflib.SequenceMatcher(
+            a=old_snapshot, b=new_snapshot, autojunk=False
+        )
+        index_map = {}
+
+        for block in matcher.get_matching_blocks():
+            for offset in range(block.size):
+                index_map[block.a + offset] = block.b + offset
+
+        return {index_map[i] for i in indices if i in index_map}
+
     def _handle_data_changed(self):
+        old_snapshot = self._row_snapshot
+        new_snapshot = self._snapshot_rows()
+
+        if len(old_snapshot) != len(new_snapshot):
+            self._highlighted_indices = self._remap_indices(
+                self._highlighted_indices, old_snapshot, new_snapshot
+            )
+            self._excluded_indices = self._remap_indices(
+                self._excluded_indices, old_snapshot, new_snapshot
+            )
+        else:
+            valid_rows = set(range(len(new_snapshot)))
+            self._highlighted_indices &= valid_rows
+            self._excluded_indices &= valid_rows
+
+        self._row_snapshot = new_snapshot
         self.layoutChanged.emit()
 
 

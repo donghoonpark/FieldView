@@ -101,3 +101,24 @@ def test_data_table_init(qtbot, data_container):
     qtbot.addWidget(table)
     assert table.model() is not None
     assert isinstance(table.table_model, PointTableModel)
+
+
+def test_model_check_state_remaps_after_row_removal(data_container):
+    model = PointTableModel(data_container)
+
+    model.setData(model.index(2, 0), CHECKED, Qt.ItemDataRole.CheckStateRole)
+    model.setData(model.index(1, 1), CHECKED, Qt.ItemDataRole.CheckStateRole)
+
+    data_container.remove_points([0])
+
+    assert model.get_highlighted_indices() == [1]
+    assert model.get_excluded_indices() == [0]
+
+    assert (
+        model.data(model.index(1, 0), Qt.ItemDataRole.CheckStateRole)
+        == Qt.CheckState.Checked
+    )
+    assert (
+        model.data(model.index(0, 1), Qt.ItemDataRole.CheckStateRole)
+        == Qt.CheckState.Checked
+    )

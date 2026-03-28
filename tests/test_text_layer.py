@@ -27,6 +27,10 @@ def test_value_layer(qtbot):
     layer.prefix = "Val: "
     assert layer._get_text(0, 10.12345, "") == "Val: 10.123 m"
 
+    layer.postfix = " kg"
+    assert layer.suffix == " kg"
+    assert layer._get_text(0, 10.12345, "") == "Val: 10.123 kg"
+
 
 def test_label_layer(qtbot):
     dc = DataContainer()

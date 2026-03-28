@@ -247,9 +247,6 @@ class ValueLayer(TextLayer):
         super().__init__(data_container, parent)
         self._decimal_places = 2
         self._suffix = ""
-        self._postfix = ""  # Same as suffix? antigravity.md says both. Let's assume prefix/suffix or just suffix.
-        # antigravity.md says "Can add suffix, postfix". Maybe prefix/suffix?
-        # Let's implement prefix and suffix.
         self._prefix = ""
 
     @property
@@ -269,6 +266,14 @@ class ValueLayer(TextLayer):
     def suffix(self, value: str):
         self._suffix = value
         self.update_layer()
+
+    @property
+    def postfix(self) -> str:
+        return self._suffix
+
+    @postfix.setter
+    def postfix(self, value: str):
+        self.suffix = value
 
     @property
     def prefix(self) -> str:
